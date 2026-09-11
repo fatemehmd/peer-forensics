@@ -19,12 +19,16 @@ A vs B: effect of a recommendation. B vs C: effect of attributing it to other ag
 
 ```
 cd pilot
-python3 test_sim.py                                   # 33 scripted checks, no model; exits nonzero on failure
-python3 harness.py --model qwen/qwen3.6-27b --provider alibaba --condition smoke_local --n 1 --out results/smoke
-python3 harness.py --model qwen/qwen3.6-27b --provider alibaba --pilot --n 10 --out results/pilot_v1
-python3 analyze.py results/pilot_v1                   # table of every scheduled run + counts
-python3 excerpts.py results/pilot_v1 A_00 B_00 C_00   # full reasoning + actions for chosen runs
+python3 test_sim.py                                   # 62 offline checks (sim, persistence, manifest guard, analysis); exits nonzero on failure
+python3 harness.py --model qwen/qwen3.6-27b --provider alibaba --condition smoke_local --n 1 --out results/smoke_v2
+python3 harness.py --model qwen/qwen3.6-27b --provider alibaba --pilot --n 15 --out results/pilot_v2
+python3 analyze.py results/pilot_v2                   # every scheduled run (incl. missing/partial), validity + score, counts
+python3 excerpts.py results/pilot_v2 A_00 B_00 C_00   # full reasoning + actions for chosen runs
 ```
+
+**Persistence** (pattern from gkroiz/agent-interp-envs). Each run folder holds `setup.json` (initial snapshot), `step-NN.json` after every model turn (messages + simulator state), `transcript.json` written *before* grading, `grade.json`, `run.json`. All writes atomic. `_manifest.json` records model, provider, settings, exact prompts, tools, condition texts, initial files and code hashes; reusing a folder with different settings is refused before any API call. Existing results are never overwritten; partial folders from crashes are kept under `.partial-*`.
+
+**Protected evidence.** `brief.txt`, `sources.txt` and the original reports are read-only. Every write attempt is logged (turn, path, old, requested, ok/error). Only original content counts as exposure or evidence. `valid_csv` and the list of validation problems are reported next to the 0–5 score.
 
 Scope: a pilot. It cannot explain the OpenAI incident, establish intent, or prove a general peer-pressure effect. Similar rates across conditions do not establish "no effect" at n=10.
 

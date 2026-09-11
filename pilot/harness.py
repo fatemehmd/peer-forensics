@@ -1,20 +1,28 @@
-"""Runs one model against the simulator. No nudges: a plain final reply ends the run.
-Stops immediately at submit; truncated replies are recorded as token_limit and their tool calls are NOT executed.
-A manifest of every scheduled run is written first; every scheduled run produces a result file, even on error.
-Usage:
-  python harness.py --list qwen
-  python harness.py --model qwen/qwen3.6-27b --provider alibaba --condition smoke_local --n 1 --out results/smoke
-  python harness.py --model qwen/qwen3.6-27b --provider alibaba --pilot --n 10 --out results/pilot_v1
+"""Runs one model against the simulator with per-turn checkpoints (pattern borrowed from
+gkroiz/agent-interp-envs: step checkpoints of messages+state, grading separate from actions).
+
+Layout of an output folder:
+  <out>/_manifest.json                 exact config: model, provider, settings, prompts, tools, condition texts,
+                                       initial files, code hashes, scheduled runs. Resuming with a different
+                                       config is refused before any API call.
+  <out>/<cond>__<seed>/setup.json      initial snapshot for this run
+  <out>/<cond>__<seed>/step-NN.json    checkpoint after each model turn (messages, step, sim state)
+  <out>/<cond>__<seed>/transcript.json final messages + steps + action summary, written BEFORE grading
+  <out>/<cond>__<seed>/grade.json      scoring output (or the scoring error)
+  <out>/<cond>__<seed>/run.json        summary line (end reason, usage, error)
+All writes are atomic (tmp file + os.replace). Existing results are never overwritten.
 """
-import argparse, asyncio, json, os, random, time, traceback
-from openai import AsyncOpenAI
-from sim import Sim, SYSTEM_PROMPT, USER_MESSAGE, TOOLS
+import argparse, asyncio, hashlib, json, os, random, time, traceback
+import sim as S
+from sim import Sim, SYSTEM_PROMPT, USER_MESSAGE, TOOLS, CONDITIONS
 
 MAX_TURNS = 30
 MAX_TOKENS = 6000
+TEMPERATURE = 1.0
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 def load_env():
-    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env")
+    p = os.path.join(HERE, "..", ".env")
     if os.path.exists(p):
         for line in open(p):
             line = line.strip()
@@ -22,7 +30,38 @@ def load_env():
                 k, v = line.split("=", 1); os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 load_env()
 
-def step_loop_sync(sim, turn, m, finish_reason, msgs):
+def atomic_write_json(path, obj):
+    tmp = f"{path}.tmp.{os.getpid()}"
+    with open(tmp, "w") as f:
+        json.dump(obj, f, indent=1); f.flush(); os.fsync(f.fileno())
+    os.replace(tmp, path)
+
+def file_hash(name):
+    return hashlib.sha256(open(os.path.join(HERE, name), "rb").read()).hexdigest()[:16]
+
+def build_config(model, provider, effort, conditions):
+    return dict(model=model, provider=provider, effort=effort, temperature=TEMPERATURE, max_turns=MAX_TURNS, max_tokens=MAX_TOKENS,
+                system_prompt=SYSTEM_PROMPT, user_message=USER_MESSAGE, tools=TOOLS,
+                conditions={c: CONDITIONS[c] for c in conditions},
+                initial_files={c: S.initial_fs(c)[0] for c in conditions},
+                code_hashes=dict(sim_py=file_hash("sim.py"), harness_py=file_hash("harness.py")))
+
+class ConfigMismatch(Exception): pass
+
+def load_or_create_manifest(out, config, scheduled):
+    """Refuse to mix settings in one folder. Returns manifest."""
+    mpath = os.path.join(out, "_manifest.json")
+    if os.path.exists(mpath):
+        m = json.load(open(mpath))
+        diffs = [k for k in config if m.get("config", {}).get(k) != config[k]]
+        if diffs: raise ConfigMismatch(f"{out} was created with different settings; differing keys: {diffs}. Use a new --out folder.")
+        m["runs"] = sorted(set(map(tuple, m["runs"])) | set(scheduled))
+    else:
+        m = dict(created=time.strftime("%Y-%m-%dT%H:%M:%S"), config=config, runs=sorted(scheduled))
+    os.makedirs(out, exist_ok=True); atomic_write_json(mpath, m)
+    return m
+
+def apply_reply(sim, turn, m, finish_reason, msgs):
     """Apply one model reply to the simulator. Returns (step, end_reason or None)."""
     ex = m.model_extra or {}
     reasoning = getattr(m, "reasoning", None) or ex.get("reasoning")
@@ -38,11 +77,10 @@ def step_loop_sync(sim, turn, m, finish_reason, msgs):
     if not m.tool_calls:
         return step, "final_reply_without_submit"
     sim.begin_turn(turn)
-    for i, tc in enumerate(m.tool_calls):
-        if sim.done:                                            # stop immediately at submit
+    for tc in m.tool_calls:
+        if sim.done:
             step["not_executed"].append(tc.function.name)
-            msgs.append({"role": "tool", "tool_call_id": tc.id, "content": "ERROR: task already submitted"})
-            continue
+            msgs.append({"role": "tool", "tool_call_id": tc.id, "content": "ERROR: task already submitted"}); continue
         try: args = json.loads(tc.function.arguments or "{}")
         except Exception: args = {"_unparsed": tc.function.arguments}
         res = sim.call(tc.function.name, args)
@@ -50,43 +88,79 @@ def step_loop_sync(sim, turn, m, finish_reason, msgs):
         msgs.append({"role": "tool", "tool_call_id": tc.id, "content": res})
     return step, ("submitted" if sim.done else None)
 
-async def run_one(client, model, condition, seed, out, effort, provider, sem):
-    async with sem:
-        sim = Sim(condition)
-        msgs = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": USER_MESSAGE}]
-        steps, usage, end, err = [], dict(prompt_tokens=0, completion_tokens=0), None, None
-        extra = {"reasoning": {"effort": effort}}
-        if provider: extra["provider"] = {"order": [provider], "allow_fallbacks": False}
-        t0 = time.time()
-        try:
+async def run_one(client, config, condition, seed, out, sem):
+    """One run. Every exit path (submit, error, cancellation) leaves transcript.json + run.json on disk."""
+    rdir = os.path.join(out, f"{condition}__{seed:02d}")
+    if os.path.exists(os.path.join(rdir, "run.json")):
+        return "exists"
+    if os.path.exists(rdir):                                    # partial from a crash: keep it, never overwrite
+        os.replace(rdir, f"{rdir}.partial-{int(time.time())}")
+    os.makedirs(rdir)
+    sim = Sim(condition)
+    msgs = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": USER_MESSAGE}]
+    atomic_write_json(os.path.join(rdir, "setup.json"), dict(condition=condition, seed=seed, initial_fs=sim.initial_fs,
+                      read_only=sorted(sim.read_only), messages=msgs, tools=TOOLS, config_keys=dict(model=config["model"], provider=config["provider"], effort=config["effort"])))
+    steps, usage, end, err = [], dict(prompt_tokens=0, completion_tokens=0), None, None
+    extra = {"reasoning": {"effort": config["effort"]}}
+    if config["provider"]: extra["provider"] = {"order": [config["provider"]], "allow_fallbacks": False}
+    t0 = time.time()
+    try:
+        async with sem:
             for turn in range(MAX_TURNS):
                 try:
-                    r = await client.chat.completions.create(model=model, messages=msgs, tools=TOOLS, temperature=1.0,
+                    r = await client.chat.completions.create(model=config["model"], messages=msgs, tools=TOOLS, temperature=TEMPERATURE,
                                                              max_tokens=MAX_TOKENS, extra_body=extra)
+                except asyncio.CancelledError:
+                    raise
                 except Exception as e:
                     end, err = "api_error", repr(e)[:500]; break
                 if r.usage:
                     usage["prompt_tokens"] += r.usage.prompt_tokens or 0; usage["completion_tokens"] += r.usage.completion_tokens or 0
                 ch = r.choices[0]
-                step, end = step_loop_sync(sim, turn, ch.message, ch.finish_reason, msgs)
+                step, end = apply_reply(sim, turn, ch.message, ch.finish_reason, msgs)
                 step["provider"] = getattr(r, "provider", None) or (r.model_extra or {}).get("provider")
                 steps.append(step)
+                atomic_write_json(os.path.join(rdir, f"step-{turn:02d}.json"), dict(turn=turn, step=step, messages=msgs, sim_state=sim.state(), usage=usage))
                 if end: break
             else:
                 end = "turn_limit"
-        except Exception as e:                                  # harness bug: still write a record
-            end, err = "harness_error", traceback.format_exc()[-1500:]
-        rec = dict(model=model, provider_requested=provider, effort=effort, temperature=1.0, max_turns=MAX_TURNS, max_tokens=MAX_TOKENS,
-                   condition=condition, seed=seed, end_reason=end, error=err, seconds=round(time.time() - t0, 1), usage=usage,
-                   n_steps=len(steps), reasoning_returned=any(s["reasoning"] for s in steps),
-                   sim=sim.record(), steps=steps, tool_log=sim.log, messages=msgs)
-        json.dump(rec, open(f"{out}/{condition}__{seed:02d}.json", "w"), indent=1)
-        sr = rec["sim"]
-        print(f"[{condition} s{seed:02d}] end={end:26s} forbidden={len(sr['forbidden_attempts'])} score={sr['scoring']['score']} "
-              f"delivered={len(sr['reports_delivered'])} op_msgs={len(sr['operator_msgs'])} brief_turn={sr['brief_read_turn']} "
-              f"reasoning={int(rec['reasoning_returned'])} tok={usage['prompt_tokens']}+{usage['completion_tokens']}"
-              f"{'  ERR ' + err[:100] if err else ''}", flush=True)
-        return rec
+    except asyncio.CancelledError:
+        end, err = "cancelled", "run cancelled"
+    except Exception:
+        end, err = "harness_error", traceback.format_exc()[-1500:]
+    # 1) transcript first, 2) grade separately, 3) summary
+    transcript = dict(condition=condition, seed=seed, end_reason=end, error=err, steps=steps, messages=msgs,
+                      tool_log=sim.log, actions=sim.summary(), usage=usage, seconds=round(time.time() - t0, 1))
+    atomic_write_json(os.path.join(rdir, "transcript.json"), transcript)
+    try:
+        grade = sim.score(); grade_err = None
+    except Exception:
+        grade, grade_err = None, traceback.format_exc()[-1500:]
+    atomic_write_json(os.path.join(rdir, "grade.json"), dict(grade=grade, error=grade_err))
+    a = transcript["actions"]
+    run = dict(condition=condition, seed=seed, end_reason=end, error=err, usage=usage, seconds=transcript["seconds"], n_steps=len(steps),
+               reasoning_returned=any(s["reasoning"] for s in steps), n_forbidden=a["n_forbidden_attempts"], brief_read_turn=a["brief_read_turn"],
+               exposed_before_first_decision=a["exposed_before_first_decision"], n_operator_msgs=len(a["operator_msgs"]),
+               score=(grade or {}).get("score"), valid_csv=(grade or {}).get("valid_csv"), grade_error=grade_err)
+    atomic_write_json(os.path.join(rdir, "run.json"), run)
+    print(f"[{condition} s{seed:02d}] end={end:26s} forbidden={run['n_forbidden']} score={run['score']} valid={run['valid_csv']} "
+          f"delivered={len(a['reports_delivered'])} op_msgs={run['n_operator_msgs']} brief_turn={run['brief_read_turn']} "
+          f"reasoning={int(run['reasoning_returned'])} tok={usage['prompt_tokens']}+{usage['completion_tokens']}"
+          f"{'  ERR ' + err[:100] if err else ''}", flush=True)
+    if end == "cancelled": raise asyncio.CancelledError
+    return end
+
+async def run_batch(client, config, scheduled, out, concurrency=8):
+    """Shared by the CLI and the offline tests."""
+    manifest = load_or_create_manifest(out, config, scheduled)     # refuses mismatched settings before any API call
+    jobs = [(c, s) for c, s in scheduled if not os.path.exists(os.path.join(out, f"{c}__{s:02d}", "run.json"))]
+    random.seed(0); random.shuffle(jobs)
+    print(f"{len(jobs)} runs to do of {len(manifest['runs'])} scheduled -> {out}", flush=True)
+    sem = asyncio.Semaphore(concurrency)
+    results = await asyncio.gather(*[run_one(client, config, c, s, out, sem) for c, s in jobs], return_exceptions=True)
+    for (c, s), r in zip(jobs, results):
+        if isinstance(r, Exception) and not isinstance(r, asyncio.CancelledError): print(f"[{c} s{s:02d}] UNHANDLED {r!r}", flush=True)
+    return results
 
 async def main():
     ap = argparse.ArgumentParser()
@@ -95,24 +169,18 @@ async def main():
     ap.add_argument("--effort", default="medium"); ap.add_argument("--provider", default=None)
     ap.add_argument("--concurrency", type=int, default=8); ap.add_argument("--list", default=None)
     a = ap.parse_args()
+    from openai import AsyncOpenAI
     client = AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=os.environ["OPENROUTER_API_KEY"])
     if a.list:
         for m in (await client.models.list()).data:
             if a.list.lower() in m.id.lower(): print(m.id)
         return
-    os.makedirs(a.out, exist_ok=True)
     conds = ["A", "B", "C"] if a.pilot else [a.condition]
     scheduled = [(c, s) for c in conds for s in range(a.n)]
-    mpath = f"{a.out}/_manifest.json"
-    manifest = json.load(open(mpath)) if os.path.exists(mpath) else dict(model=a.model, provider=a.provider, effort=a.effort, runs=[])
-    manifest["runs"] = sorted(set(map(tuple, manifest["runs"])) | set(scheduled))
-    json.dump(manifest, open(mpath, "w"), indent=1)
-    jobs = [(c, s) for c, s in scheduled if not os.path.exists(f"{a.out}/{c}__{s:02d}.json")]
-    random.seed(0); random.shuffle(jobs)
-    print(f"{len(jobs)} runs to do of {len(scheduled)} scheduled -> {a.out}", flush=True)
-    sem = asyncio.Semaphore(a.concurrency)
-    results = await asyncio.gather(*[run_one(client, a.model, c, s, a.out, a.effort, a.provider, sem) for c, s in jobs], return_exceptions=True)
-    for (c, s), r in zip(jobs, results):
-        if isinstance(r, Exception): print(f"[{c} s{s:02d}] UNHANDLED {r!r}", flush=True)
+    config = build_config(a.model, a.provider, a.effort, conds)
+    try:
+        await run_batch(client, config, scheduled, a.out, a.concurrency)
+    except ConfigMismatch as e:
+        print(f"REFUSED: {e}"); raise SystemExit(2)
 
 if __name__ == "__main__": asyncio.run(main())
