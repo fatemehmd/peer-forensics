@@ -7,16 +7,18 @@ import env as E
 
 MAX_TURNS = 30
 
-async def rollout(client, model, condition, seed, sem, outdir, reasoning_effort):
+async def rollout(client, model, condition, seed, sem, outdir, reasoning_effort, report_tool=True):
     async with sem:
-        env = E.Env(condition)
-        msgs = [{"role": "system", "content": E.SYSTEM_PROMPT}, {"role": "user", "content": env.initial_user_message()}]
+        env = E.Env(condition, report_tool=report_tool)
+        tools = E.tools_for(report_tool)
+        sysp = E.SYSTEM_PROMPT if report_tool else E.SYSTEM_PROMPT_NOREPORT
+        msgs = [{"role": "system", "content": sysp}, {"role": "user", "content": env.initial_user_message()}]
         transcript = []  # assistant reasoning/content + tool calls in order
         err = None
         for turn in range(MAX_TURNS):
             try:
                 r = await client.chat.completions.create(
-                    model=model, messages=msgs, tools=E.TOOLS, temperature=1.0,
+                    model=model, messages=msgs, tools=tools, temperature=1.0,
                     extra_body={"reasoning": {"effort": reasoning_effort}})
             except Exception as e:
                 err = repr(e); break
@@ -40,9 +42,10 @@ async def rollout(client, model, condition, seed, sem, outdir, reasoning_effort)
                 msgs.append({"role": "tool", "tool_call_id": tc.id, "content": out})
             transcript.append(entry)
             if env.done: break
-        rec = dict(id=str(uuid.uuid4())[:8], model=model, condition=condition, seed=seed, error=err,
+        rec = dict(id=str(uuid.uuid4())[:8], model=model, condition=condition, report_tool=report_tool, seed=seed, error=err,
                    turns=len(transcript), metrics=env.metrics, transcript=transcript, tool_log=env.log)
-        fn = f"{outdir}/{model.replace('/','_')}__{condition}__{seed}.json"
+        tag = "" if report_tool else "__noreport"
+        fn = f"{outdir}/{model.replace('/','_')}__{condition}{tag}__{seed}.json"
         json.dump(rec, open(fn, "w"), indent=1)
         mm = env.metrics
         print(f"[{condition:20s} {model:28s} s{seed:02d}] proxy={int(mm['used_proxy'])} report={int(mm['reported'])} post={int(mm['posted'])} rows={mm['rows_filled']} turns={len(transcript)} {('ERR '+err[:80]) if err else ''}", flush=True)
@@ -56,6 +59,7 @@ async def main():
     ap.add_argument("--concurrency", type=int, default=8)
     ap.add_argument("--effort", default="medium")
     ap.add_argument("--outdir", default="results")
+    ap.add_argument("--no-report-tool", action="store_true", help="remove the report_to_operator tool (METR 'no route' condition)")
     ap.add_argument("--list-models", default=None)
     ap.add_argument("--base-url", default=os.environ.get("LLM_BASE_URL", "https://openrouter.ai/api/v1"), help="OpenRouter, or a local vLLM server e.g. http://localhost:8000/v1")
     a = ap.parse_args()
@@ -71,9 +75,10 @@ async def main():
     for model in a.models:
         for c in a.conditions:
             for s in range(a.n):
-                fn = f"{a.outdir}/{model.replace('/','_')}__{c}__{s}.json"
+                tag = "__noreport" if a.no_report_tool else ""
+                fn = f"{a.outdir}/{model.replace('/','_')}__{c}{tag}__{s}.json"
                 if os.path.exists(fn): continue   # resumable
-                jobs.append(rollout(client, model, c, s, sem, a.outdir, a.effort))
+                jobs.append(rollout(client, model, c, s, sem, a.outdir, a.effort, report_tool=not a.no_report_tool))
     random.shuffle(jobs)
     print(f"{len(jobs)} rollouts to run", flush=True)
     await asyncio.gather(*jobs)

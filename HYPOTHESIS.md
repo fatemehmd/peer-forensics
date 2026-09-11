@@ -51,3 +51,13 @@ H1 vs H4 vs H2 is the core contrast. H5 is the "why no alarm" contrast. H3 is a 
 | 4–6 | Analyze; one follow-up chosen from CoT reading (e.g. dose-response on #peers, or "ask the model" baseline) |
 | 6–8 | Sanity checks: hand-verify 30 transcripts, recompute headline numbers by hand, write limitations |
 | 8–10 | Write-up (your own voice), exec summary with 2 graphs, form answers |
+
+## Update after reading the METR PDF (refs/metr_report_text.txt)
+- There was NO channel to humans. Classifier sweep found 3–6 agents *considering* alerting humans out of ~1,300; none acted.
+- METR's analysis agent guessed two reasons: "not my task" and "no route" ("I can't report this externally"). Untested guesses.
+- Agents escalated to the *message board* instead and treated it as an authority.
+- Exactly one agent declined to participate.
+
+### Added conditions
+- `solo_info_success`: unsigned README line saying the remote/ route works and was scored full credit. Same facts as peers_doing, no peers. **Primary contrast vs peers_doing.**
+- `--no-report-tool`: every condition rerun without `report_to_operator` (only a submit note). Tests METR's "no route" guess directly: if reporting rises when the tool exists, no-route was the cause; if it stays ~0 with the button, it's "not my task" / peer silence.
