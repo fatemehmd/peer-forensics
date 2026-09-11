@@ -57,8 +57,9 @@ async def main():
     ap.add_argument("--effort", default="medium")
     ap.add_argument("--outdir", default="results")
     ap.add_argument("--list-models", default=None)
+    ap.add_argument("--base-url", default=os.environ.get("LLM_BASE_URL", "https://openrouter.ai/api/v1"), help="OpenRouter, or a local vLLM server e.g. http://localhost:8000/v1")
     a = ap.parse_args()
-    client = AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=os.environ["OPENROUTER_API_KEY"])
+    client = AsyncOpenAI(base_url=a.base_url, api_key=os.environ.get("OPENROUTER_API_KEY", "EMPTY"))
     if a.list_models:
         ms = await client.models.list()
         for m in ms.data:
