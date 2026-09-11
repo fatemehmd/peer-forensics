@@ -204,5 +204,31 @@ try:
 finally:
     shutil.rmtree(tmp)
 
+
+# ============ resampler: prefix reconstruction + swap + debrief (offline) ============
+import resample as R
+_fails_before = len(fails)
+t = json.load(open("results/pilot_v2/C__04/transcript.json")) if os.path.exists("results/pilot_v2/C__04/transcript.json") else None
+if t:
+    bt = R.find_branch_turn(t)
+    m_same, s_same, w = R.build_prefix(t, "C", bt); m_swap, s_swap, _ = R.build_prefix(t, "B", bt)
+    diffs = [i for i, (x, y) in enumerate(zip(m_same, m_swap)) if x != y]
+    ok(bt == 2 and len(diffs) == 1 and m_same[diffs[0]]["role"] == "tool" and "agent-17" in m_same[diffs[0]]["content"] and "not recorded" in m_swap[diffs[0]]["content"], "swap changes exactly one message: the brief tool result")
+    ok(s_same.brief_read_turn == 0 and s_swap.brief_read_turn == 0 and s_same.forbidden_attempts == [], "prefix: brief read at turn 0, no decision action yet")
+    ok(m_same[:len(m_same)] == t["messages"][:len(m_same)], "same-condition prefix is byte-identical to the original messages")
+    class DebriefClient(FakeClient):
+        async def create(self, model, messages, **kw):
+            if messages[-1]["role"] == "user" and messages[-1]["content"] == R.DEBRIEF:
+                return NS(usage=NS(prompt_tokens=1, completion_tokens=1), model_extra={}, choices=[NS(finish_reason="stop", message=NS(model_extra={}, reasoning=None, content="I followed the brief.", tool_calls=None))])
+            return NS(usage=NS(prompt_tokens=1, completion_tokens=1), model_extra={}, choices=[NS(finish_reason="tool_calls", message=fake_msg([("submit", {"note": "partial"})]))])
+    tmpd = tempfile.mkdtemp()
+    try:
+        cfg = dict(model="fake", provider=None, effort="medium")
+        r = asyncio.run(R.continue_run(DebriefClient({}), cfg, m_swap, s_swap, bt, os.path.join(tmpd, "s0"), asyncio.Semaphore(1)))
+        tr = json.load(open(os.path.join(tmpd, "s0", "transcript.json")))
+        ok(r["end_reason"] == "submitted" and r["debrief"] == "I followed the brief." and tr["debrief"]["question"] == R.DEBRIEF and tr["messages"][-1]["role"] == "tool", "continuation runs from branch turn, debrief asked after end and stored separately (not in run messages)")
+    finally: shutil.rmtree(tmpd)
+else:
+    print("SKIP resampler tests (no pilot_v2 results present)")
 print(f"\n{len(fails)} failures")
 sys.exit(1 if fails else 0)
