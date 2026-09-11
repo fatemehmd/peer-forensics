@@ -30,7 +30,7 @@ async def run_one(client, model, condition, seed, out, effort, provider, sem):
         t0 = time.time()
         for turn in range(MAX_TURNS):
             try:
-                r = await client.chat.completions.create(model=model, messages=msgs, tools=TOOLS, temperature=1.0, extra_body=extra)
+                r = await client.chat.completions.create(model=model, messages=msgs, tools=TOOLS, temperature=1.0, max_tokens=6000, extra_body=extra)
             except Exception as e:
                 end = f"api_error: {e!r}"[:300]; break
             if r.usage:
