@@ -1,0 +1,2 @@
+1 runs scheduled -> results/smoke
+[smoke_local s00] end=submitted                    forbidden=0 score=5 reports=5 op_msgs=0 brief=1 reasoning=1 tok=7816+1168
