@@ -217,16 +217,35 @@ if t:
     ok(s_same.brief_read_turn == 0 and s_swap.brief_read_turn == 0 and s_same.forbidden_attempts == [], "prefix: brief read at turn 0, no decision action yet")
     ok(m_same[:len(m_same)] == t["messages"][:len(m_same)], "same-condition prefix is byte-identical to the original messages")
     class DebriefClient(FakeClient):
+        def __init__(self, debrief_behaviour="answer"): self.db = debrief_behaviour; self.debrief_calls = 0
         async def create(self, model, messages, **kw):
             if messages[-1]["role"] == "user" and messages[-1]["content"] == R.DEBRIEF:
+                self.debrief_calls += 1
+                if self.db == "cancel": raise asyncio.CancelledError()
+                if self.db == "raise": raise RuntimeError("debrief boom")
                 return NS(usage=NS(prompt_tokens=1, completion_tokens=1), model_extra={}, choices=[NS(finish_reason="stop", message=NS(model_extra={}, reasoning=None, content="I followed the brief.", tool_calls=None))])
             return NS(usage=NS(prompt_tokens=1, completion_tokens=1), model_extra={}, choices=[NS(finish_reason="tool_calls", message=fake_msg([("submit", {"note": "partial"})]))])
     tmpd = tempfile.mkdtemp()
     try:
         cfg = dict(model="fake", provider=None, effort="medium")
-        r = asyncio.run(R.continue_run(DebriefClient({}), cfg, m_swap, s_swap, bt, os.path.join(tmpd, "s0"), asyncio.Semaphore(1)))
-        tr = json.load(open(os.path.join(tmpd, "s0", "transcript.json")))
-        ok(r["end_reason"] == "submitted" and r["debrief"] == "I followed the brief." and tr["debrief"]["question"] == R.DEBRIEF and tr["messages"][-1]["role"] == "tool", "continuation runs from branch turn, debrief asked after end and stored separately (not in run messages)")
+        r = asyncio.run(R.continue_run(DebriefClient(), cfg, m_swap, s_swap, bt, os.path.join(tmpd, "s0"), asyncio.Semaphore(1)))
+        tr = json.load(open(os.path.join(tmpd, "s0", "transcript.json"))); db = json.load(open(os.path.join(tmpd, "s0", "debrief.json")))
+        ok(r["end_reason"] == "submitted" and r["debrief"] == "I followed the brief." and db["question"] == R.DEBRIEF and "debrief" not in tr and tr["messages"][-1]["role"] == "tool", "continuation from branch turn; debrief stored in its own file, not in the run transcript")
+        # cancellation during debrief must not lose the completed continuation
+        _, s2, _ = R.build_prefix(t, "B", bt)
+        try: asyncio.run(R.continue_run(DebriefClient("cancel"), cfg, m_swap, s2, bt, os.path.join(tmpd, "s1"), asyncio.Semaphore(1)))
+        except asyncio.CancelledError: pass
+        ok(os.path.exists(os.path.join(tmpd, "s1", "run.json")) and os.path.exists(os.path.join(tmpd, "s1", "transcript.json")) and not os.path.exists(os.path.join(tmpd, "s1", "debrief.json")), "cancel during debrief: continuation transcript/grade/run already saved, debrief absent")
+        # retry fills only the debrief, without rerunning the continuation
+        before = open(os.path.join(tmpd, "s1", "transcript.json")).read()
+        c3 = DebriefClient()
+        _, s3, _ = R.build_prefix(t, "B", bt)
+        r3 = asyncio.run(R.continue_run(c3, cfg, m_swap, s3, bt, os.path.join(tmpd, "s1"), asyncio.Semaphore(1)))
+        ok(open(os.path.join(tmpd, "s1", "transcript.json")).read() == before and c3.debrief_calls == 1 and r3["debrief"] == "I followed the brief." and os.path.exists(os.path.join(tmpd, "s1", "debrief.json")), "retry: continuation untouched, only the debrief was requested and saved")
+        # debrief API error: recorded in return, not persisted, so a later retry can fill it
+        _, s4, _ = R.build_prefix(t, "B", bt)
+        r4 = asyncio.run(R.continue_run(DebriefClient("raise"), cfg, m_swap, s4, bt, os.path.join(tmpd, "s2"), asyncio.Semaphore(1)))
+        ok(r4["end_reason"] == "submitted" and r4.get("debrief") is None and not os.path.exists(os.path.join(tmpd, "s2", "debrief.json")), "debrief error: continuation kept, no debrief file written")
     finally: shutil.rmtree(tmpd)
 else:
     print("SKIP resampler tests (no pilot_v2 results present)")
