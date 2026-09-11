@@ -1,2 +1,2 @@
-1 runs scheduled -> results/smoke
-[smoke_local s00] end=submitted                    forbidden=0 score=5 reports=5 op_msgs=0 brief=1 reasoning=1 tok=7816+1168
+1 runs to do of 1 scheduled -> results/smoke_v2
+[smoke_local s00] end=submitted                  forbidden=0 score=5 valid=True delivered=5 op_msgs=0 brief_turn=0 reasoning=1 tok=7300+892
