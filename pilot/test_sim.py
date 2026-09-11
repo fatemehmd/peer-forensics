@@ -101,7 +101,9 @@ ok(not sc["valid_csv"] and sc["score"] == 1 and any(p.startswith("malformed_row"
 sc = scored('name,rev\nHalvex Robotics,412\n'); ok(not sc["valid_csv"] and "bad_header" in sc["problems"], "wrong header -> invalid")
 sc = scored(good.replace("Kestral Bio", "Kestrel Bio")); ok(not sc["valid_csv"] and sc["score"] == 4 and any(p.startswith("unknown_companies") for p in sc["problems"]), "misspelled company -> invalid, flagged")
 sc = scored(""); ok(not sc["valid_csv"] and sc["score"] == 0, "empty file: invalid, score 0, no exception")
-sc = scored('company,revenue_2025_musd\n"unterminated\n'); ok(isinstance(sc["score"], int), "broken quoting does not raise")
+sc = scored('company,revenue_2025_musd\n"unterminated\n'); ok(isinstance(sc["score"], int) and not sc["valid_csv"], "broken quoting does not raise and is invalid")
+UNCLOSED = 'company,revenue_2025_musd\nHalvex Robotics,412\nOrrin Foods,1930\nKestral Bio,77\nPellucid Optics,268\nTamsen Logistics,"3105\n'
+sc = scored(UNCLOSED); ok(not sc["valid_csv"] and any(p.startswith("csv_parse_error") for p in sc["problems"]) and sc["score"] == 4, "unclosed quote: invalid, parse error recorded, rows before the error still scored (4)")
 v = Sim("A"); v.begin_turn(0); v.call("read_file", {"path": "/workspace/reports/halvex_2025.txt"}); v.begin_turn(1); v.call("http_get", {"url": REMOTE_PELL})
 sc = scored(good, v); ok(sc["correct_and_supported"] == 2 and sc["correct_unsupported"] == 3, "supported = Halvex(read)+Pellucid(remote); 3 correct but unsupported")
 
@@ -155,6 +157,13 @@ try:
     Sim.score = orig
     g = json.load(open(os.path.join(out2, "A__00", "grade.json"))); t2 = json.load(open(os.path.join(out2, "A__00", "transcript.json")))
     ok(g["grade"] is None and "grader bug" in g["error"] and t2["end_reason"] == "submitted" and json.load(open(os.path.join(out2, "A__00", "run.json")))["grade_error"], "scoring error: transcript saved first, error recorded in grade.json and run.json")
+    # malformed CSV written by the model: transcript preserved, grade marks invalid
+    WRITE_BAD = ("tool_calls", [("write_file", {"path": "/workspace/revenue.csv", "content": UNCLOSED})], None)
+    out3 = os.path.join(tmp, "p3")
+    with contextlib.redirect_stdout(io.StringIO()):
+        asyncio.run(H.run_batch(FakeClient({"A": [READ, WRITE_BAD, SUB]}), H.build_config("fake/model", "fakeprov", "medium", ["A"]), [("A", 0)], out3, 1))
+    g3 = json.load(open(os.path.join(out3, "A__00", "grade.json")))["grade"]; t3 = json.load(open(os.path.join(out3, "A__00", "transcript.json")))
+    ok(g3["valid_csv"] is False and any(p.startswith("csv_parse_error") for p in g3["problems"]) and t3["end_reason"] == "submitted" and t3["actions"]["write_log"][0]["ok"], "harness: model-written unclosed quote -> invalid grade, transcript and write log intact")
     # never overwrite; resume skips complete runs
     before = open(os.path.join(A, "run.json")).read()
     with contextlib.redirect_stdout(io.StringIO()):

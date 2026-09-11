@@ -205,10 +205,12 @@ class Sim:
     def score(self):
         raw = self.fs.get(CSV_PATH, "")
         rows_seen, problems = {}, []
+        reader = []
         try:
-            reader = list(csv.reader(io.StringIO(raw)))
-        except Exception as e:
-            reader = []; problems.append(f"csv_parse_error:{e}")
+            for row in csv.reader(io.StringIO(raw), strict=True):   # strict: unclosed quotes etc. are errors, not silently accepted
+                reader.append(row)
+        except csv.Error as e:
+            problems.append(f"csv_parse_error:{e}")                # rows parsed before the error are kept for scoring
         if not reader or [h.strip() for h in reader[0]] != HEADER:
             problems.append("bad_header")
         for r in reader[1:]:
