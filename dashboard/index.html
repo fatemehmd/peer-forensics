@@ -1,0 +1,78 @@
+<!doctype html><html><head><meta charset="utf-8"><title>peer-forensics dashboard</title>
+<style>
+:root{--bg:#fafafa;--fg:#222;--mut:#666;--line:#ddd;--acc:#1f6feb;--bad:#c0392b;--ok:#2e7d32;--card:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#141414;--fg:#e6e6e6;--mut:#999;--line:#333;--card:#1c1c1c;--acc:#5aa0ff}}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 -apple-system,system-ui,sans-serif}
+.wrap{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{border-right:1px solid var(--line);padding:12px}aside h3{margin:8px 0 4px;font-size:12px;color:var(--mut);text-transform:uppercase}
+aside a{display:block;padding:4px 6px;border-radius:4px;color:var(--fg);text-decoration:none;cursor:pointer}aside a.sel{background:var(--acc);color:#fff}
+main{padding:12px 18px;min-width:0}
+table{border-collapse:collapse;width:100%;font-family:ui-monospace,Menlo,monospace;font-size:12px}th,td{border-bottom:1px solid var(--line);padding:3px 6px;text-align:left;white-space:nowrap}
+tr.click{cursor:pointer}tr.click:hover{background:rgba(31,111,235,.08)}
+.bad{color:var(--bad);font-weight:600}.ok{color:var(--ok)}.mut{color:var(--mut)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin:10px 0}
+pre{white-space:pre-wrap;word-break:break-word;margin:4px 0;font-size:12px}
+.counts span{display:inline-block;margin-right:18px}
+#log{max-height:260px;overflow:auto;background:#111;color:#ddd;padding:8px;border-radius:6px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.turn{border-left:3px solid var(--line);padding-left:10px;margin:8px 0}.turn .r{color:var(--mut)}.call{color:var(--acc)}
+.pill{display:inline-block;padding:0 6px;border-radius:9px;background:var(--line);font-size:11px}
+details summary{cursor:pointer;color:var(--acc)}
+</style></head><body><div class="wrap">
+<aside><h3>experiments</h3><div id="exps"></div><h3>logs</h3><div id="logs"></div><p class="mut" style="font-size:11px">read-only · refreshes every 3s</p></aside>
+<main>
+ <div id="head" class="mut">select an experiment</div>
+ <div id="counts" class="counts"></div>
+ <div id="table"></div>
+ <div id="detail"></div>
+ <h3 id="logtitle" class="mut"></h3><div id="log" hidden></div>
+</main></div>
+<script>
+let sel=null, selLog=null, selRun=null;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+async function j(u){const r=await fetch(u);return r.json()}
+async function refreshList(){
+  const d=await j('/api/experiments');
+  $('exps').innerHTML=d.experiments.sort((a,b)=>b.mtime-a.mtime).map(e=>`<a class="${sel&&sel.name===e.name?'sel':''}" onclick='pick(${JSON.stringify(e)})'>${esc(e.name)} <span class="pill">${e.kind}</span></a>`).join('');
+  $('logs').innerHTML=d.logs.map(l=>`<a class="${selLog===l?'sel':''}" onclick='pickLog(${JSON.stringify(l)})'>${esc(l)}</a>`).join('');
+}
+function pick(e){sel=e;selRun=null;$('detail').innerHTML='';refreshList();refreshMain()}
+function pickLog(l){selLog=l;refreshList();refreshLog()}
+async function refreshMain(){
+  if(!sel)return; const d=await j(`/api/experiment?kind=${sel.kind}&name=${encodeURIComponent(sel.name)}`);
+  if(d.kind==='pilot'){
+    $('head').innerHTML=`<b>${esc(d.name)}</b> · ${esc(d.model)} · ${esc(d.provider)} · effort ${esc(d.effort)} · ${esc(d.created||'')}
+      <details><summary>condition texts</summary>${Object.entries(d.conditions).map(([k,v])=>`<div class="card"><b>${k}</b><pre>${esc(v)}</pre></div>`).join('')}</details>`;
+    $('counts').innerHTML=Object.entries(d.counts).map(([c,v])=>`<span><b>${c}</b>: ${v.done}/${v.scheduled} done · <span class="${v.forbidden?'bad':'ok'}">forbidden ${v.forbidden}/${v.done}</span> · operator msg ${v.op}/${v.done}</span>`).join('');
+    $('table').innerHTML=`<table><tr><th>run</th><th>status</th><th>end</th><th>forbidden</th><th>score</th><th>valid</th><th>op msgs</th><th>brief@</th><th>exposed</th><th>tokens</th></tr>`+
+      d.rows.map(r=>`<tr class="click ${selRun===r.path?'sel':''}" onclick='openRun(${JSON.stringify(r.path)})'><td>${r.run}</td><td class="mut">${r.status}</td><td>${esc(r.end??'')}</td><td class="${r.forbidden?'bad':''}">${r.forbidden??''}</td><td>${r.score??''}</td><td>${r.valid??''}</td><td>${r.op??''}</td><td>${r.brief_turn??''}</td><td>${r.exposed??''}</td><td class="mut">${r.tokens??''}</td></tr>`).join('')+'</table>';
+  } else {
+    $('head').innerHTML=`<b>${esc(d.name)}</b> · branch-point resampling`;
+    $('counts').innerHTML=d.groups.map(g=>`<span><b>${esc(g.source)}</b> as <b>${esc(g.target)}</b>${g.source_condition!==g.target?' (swapped)':''}: <span class="${g.forbidden?'bad':'ok'}">forbidden ${g.forbidden}/${g.done}</span> of ${g.n}</span>`).join('');
+    $('table').innerHTML=d.groups.map(g=>`<div class="card"><b>${esc(g.group)}</b> · source ${esc(g.source)} (${esc(g.source_condition)}) → continued as <b>${esc(g.target)}</b> · branch turn ${g.branch_turn} · ${g.done}/${g.n} complete · <span class="${g.forbidden?'bad':'ok'}">forbidden ${g.forbidden}</span> · operator msgs ${g.op}
+      ${g.warnings.length?`<div class="bad">warnings: ${esc(g.warnings.join('; '))}</div>`:''}
+      <table><tr><th>sample</th><th>status</th><th>end</th><th>forbidden</th><th>score</th><th>debrief</th></tr>${g.samples.map(s=>`<tr class="click" onclick='openRun(${JSON.stringify(s.path)})'><td>${s.sample}</td><td class="mut">${s.status}</td><td>${esc(s.end??'')}</td><td class="${s.forbidden?'bad':''}">${s.forbidden??''}</td><td>${s.score??''}</td><td style="white-space:normal;max-width:700px">${esc((s.debrief||'').slice(0,220))}${(s.debrief||'').length>220?'…':''}</td></tr>`).join('')}</table></div>`).join('');
+  }
+}
+async function openRun(p){selRun=p;const t=await j(`/api/transcript?path=${encodeURIComponent(p)}`);
+  if(t.missing){$('detail').innerHTML=`<div class="card mut">no transcript yet</div>`;return}
+  const steps=(t.steps||[]).filter(Boolean).map(s=>`<div class="turn"><b>turn ${s.turn}</b>${s.finish_reason==='length'?' <span class="bad">TRUNCATED</span>':''}
+    ${s.reasoning?`<pre class="r">${esc(s.reasoning)}</pre>`:''}${s.content?`<pre>${esc(s.content)}</pre>`:''}
+    ${(s.tool_calls||[]).map(c=>`<div class="call">▸ ${esc(c.name)}(${esc(JSON.stringify(c.args).slice(0,160))}) → <span class="mut">${esc(String(c.result).slice(0,140))}</span></div>`).join('')}
+    ${(s.not_executed||[]).length?`<div class="bad">not executed: ${esc(s.not_executed.join(', '))}</div>`:''}</div>`).join('');
+  const a=t.actions||{}, g=t.grade||{};
+  $('detail').innerHTML=`<div class="card"><b>${esc(p)}</b> · end ${esc(t.end)} ${t.partial?'<span class="bad">(partial, last checkpoint)</span>':''}
+    · forbidden ${(a.forbidden_attempts||[]).length} · score ${g.score??'?'} valid ${g.valid_csv??'?'} ${g.problems&&g.problems.length?esc(JSON.stringify(g.problems)):''}
+    ${t.initial_brief?`<details><summary>brief this run saw</summary><pre>${esc(t.initial_brief)}</pre></details>`:''}
+    ${steps}
+    ${a.operator_msgs&&a.operator_msgs.length?`<div class="card"><b>operator messages</b>${a.operator_msgs.map(m=>`<pre>${esc(m.text)}</pre>`).join('')}</div>`:''}
+    ${a.submit_note?`<div class="card"><b>submit note</b><pre>${esc(a.submit_note)}</pre></div>`:''}
+    ${t.debrief?`<div class="card"><b>debrief</b> <span class="mut">(${esc(t.debrief.question)})</span><pre>${esc(t.debrief.answer)}</pre></div>`:''}
+  </div>`;
+  window.scrollTo({top:$('detail').offsetTop-10,behavior:'smooth'});
+}
+async function refreshLog(){if(!selLog){$('log').hidden=true;$('logtitle').textContent='';return}
+  const d=await j(`/api/log?name=${encodeURIComponent(selLog)}&n=300`);$('logtitle').textContent=`${selLog} (${d.total} lines)`;
+  const el=$('log');const atBottom=el.scrollTop+el.clientHeight>=el.scrollHeight-20;el.hidden=false;el.textContent=d.lines.join('\n');if(atBottom)el.scrollTop=el.scrollHeight}
+refreshList();setInterval(()=>{refreshList();refreshMain();refreshLog()},3000);
+</script></body></html>
