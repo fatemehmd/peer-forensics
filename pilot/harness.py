@@ -6,6 +6,16 @@ Usage:
 """
 import argparse, asyncio, json, os, random, time
 from openai import AsyncOpenAI
+
+def load_env():
+    """Read KEY=value lines from ../.env (gitignored) so no shell export is needed."""
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env")
+    if os.path.exists(p):
+        for line in open(p):
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1); os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+load_env()
 from sim import Sim, SYSTEM_PROMPT, USER_MESSAGE, TOOLS
 
 MAX_TURNS = 30
