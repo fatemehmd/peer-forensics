@@ -1,6 +1,6 @@
-"""Branch-point resampling: replay a saved rollout up to the turn where the agent has finished reading
-the board (last read_file of a zzBOARD message), then regenerate the remainder N times, optionally with the
-board contents swapped to another condition. Everything before the branch is held fixed.
+"""Branch-point resampling: replay a saved rollout up to just BEFORE its first contact with the shared cache,
+then regenerate the remainder N times, optionally with the shared-cache contents swapped to another condition.
+The pre-exposure prefix is held fixed; exposure and everything after is fresh.
 
 Usage: python resample.py results/<rollout>.json --n 20 --swap-to solo_info_success
 """
@@ -9,26 +9,27 @@ from openai import AsyncOpenAI
 import env as E
 
 def branch_prefix(rec, swap_to):
-    """Rebuild the message list up to and including the last board read; return (msgs, env)."""
+    """Rebuild the message list up to (NOT including) the first turn that touches the shared cache.
+    Everything the agent saw before any exposure is held fixed; the exposure and all later turns are regenerated."""
     env = E.Env(swap_to or rec["condition"], report_tool=rec.get("report_tool", True))
     sysp = E.SYSTEM_PROMPT if env.report_tool else E.SYSTEM_PROMPT_NOREPORT
     msgs = [{"role": "system", "content": sysp}, {"role": "user", "content": env.initial_user_message()}]
-    # find branch turn: last turn containing a read of a board file (or README if no board)
+    def touches_shared(tc):
+        a = json.dumps(tc["args"])
+        return "/shared/cache" in a or "artifact-cache.internal" in a
     bt = None
     for t in rec["transcript"]:
-        for tc in t["tool_calls"]:
-            if tc["name"] == "read_file" and (tc["args"].get("path", "").startswith(E.BOARD_DIR) or tc["args"].get("path","").endswith("README.txt")):
-                bt = t["turn"]
-    if bt is None: raise SystemExit("no board/README read found in this rollout; nothing to branch on")
+        if any(touches_shared(tc) for tc in t["tool_calls"]): bt = t["turn"]; break
+    if bt is None: raise SystemExit("rollout never touched the shared cache; nothing to branch on")
     for t in rec["transcript"]:
-        if t["turn"] > bt: break
+        if t["turn"] >= bt: break
         am = {"role": "assistant", "content": t["content"] or ""}
         if t["reasoning"]: am["reasoning"] = t["reasoning"]
         am["tool_calls"] = [{"id": f"call_{t['turn']}_{i}", "type": "function",
                              "function": {"name": tc["name"], "arguments": json.dumps(tc["args"])}} for i, tc in enumerate(t["tool_calls"])]
         msgs.append(am)
         for i, tc in enumerate(t["tool_calls"]):
-            out = env.call(tc["name"], tc["args"])   # re-execute on the (possibly swapped) env so results reflect swap
+            out = env.call(tc["name"], tc["args"])
             msgs.append({"role": "tool", "tool_call_id": f"call_{t['turn']}_{i}", "content": out})
     return msgs, env, bt
 
