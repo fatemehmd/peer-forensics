@@ -1,24 +1,39 @@
-"""Table of every scheduled run + excerpts for hand review. Usage: python analyze.py results/pilot_v1"""
-import json, glob, sys, re, os
+"""Every scheduled run (from the manifest), then counts. Observed violations are kept even for errored runs.
+Usage: python analyze.py results/pilot_v1"""
+import json, sys, re, os
 d = sys.argv[1]
-recs = sorted((json.load(open(f)) for f in glob.glob(f"{d}/*.json")), key=lambda r: (r["condition"], r["seed"]))
-print(f"{'run':8} {'end':30} {'brief':5} {'forbid':6} {'score':5} {'supp':4} {'op':3} {'reason':6} {'tok_in':7} {'tok_out':7}")
-for r in recs:
-    s = r["sim"]; sc = s["scoring"]
-    print(f"{r['condition']}_{r['seed']:02d}  {r['end_reason'][:30]:30} {int(s['read_brief']):5} {len(s['forbidden_attempts']):6} {sc['score']:5} {sc['correct_and_supported']:4} {len(s['operator_msgs']):3} {int(r['reasoning_returned']):6} {r['usage']['prompt_tokens']:7} {r['usage']['completion_tokens']:7}")
-print("\n== counts (runs that read the brief and did not error) ==")
-for c in sorted(set(r["condition"] for r in recs)):
-    rs = [r for r in recs if r["condition"] == c]
-    valid = [r for r in rs if r["sim"]["read_brief"] and not r["end_reason"].startswith("api_error")]
-    forb = sum(bool(r["sim"]["forbidden_attempts"]) for r in valid)
-    op = sum(bool(r["sim"]["operator_msgs"]) for r in valid)
-    print(f"{c}: scheduled {len(rs)}, valid {len(valid)}, attempted forbidden route {forb}/{len(valid)}, sent operator msg {op}/{len(valid)}, "
-          f"mean score {sum(r['sim']['scoring']['score'] for r in valid)/max(1,len(valid)):.2f}")
-tot_in = sum(r["usage"]["prompt_tokens"] for r in recs); tot_out = sum(r["usage"]["completion_tokens"] for r in recs)
-print(f"\ntokens: {tot_in} in, {tot_out} out")
+man = json.load(open(f"{d}/_manifest.json"))
+recs = {}
+for c, s in man["runs"]:
+    f = f"{d}/{c}__{s:02d}.json"
+    recs[(c, s)] = json.load(open(f)) if os.path.exists(f) else None
+print(f"model={man['model']} provider={man['provider']} effort={man['effort']}\n")
+print(f"{'run':6} {'end':26} {'brief@':6} {'exposed':7} {'forbid':6} {'score':5} {'supp':4} {'op':3} {'rsn':3} {'tok_in':7} {'tok_out':7}")
+for (c, s), r in sorted(recs.items()):
+    if r is None: print(f"{c}_{s:02d}  NO RESULT FILE"); continue
+    sr = r["sim"]; sc = sr["scoring"]; ex = sr["exposed_before_first_decision"]
+    print(f"{c}_{s:02d}  {r['end_reason'][:26]:26} {str(sr['brief_read_turn']):6} {str(ex):7} {len(sr['forbidden_attempts']):6} {sc['score']:5} "
+          f"{sc['correct_and_supported']:4} {len(sr['operator_msgs']):3} {int(r['reasoning_returned']):3} {r['usage']['prompt_tokens']:7} {r['usage']['completion_tokens']:7}")
+print("\n== counts ==")
+for c in sorted(set(c for c, _ in recs)):
+    rs = [r for (cc, _), r in recs.items() if cc == c]
+    have = [r for r in rs if r is not None]
+    complete = [r for r in have if r["end_reason"] in ("submitted", "final_reply_without_submit")]
+    exposed = [r for r in complete if r["sim"]["brief_read_turn"] is not None and r["sim"]["exposed_before_first_decision"] is not False]
+    forb_exposed = sum(bool(r["sim"]["forbidden_attempts"]) for r in exposed)
+    forb_any = sum(bool(r["sim"]["forbidden_attempts"]) for r in have)
+    op = sum(bool(r["sim"]["operator_msgs"]) for r in exposed)
+    incomplete = [r["end_reason"] for r in have if r not in complete]
+    print(f"{c}: scheduled {len(rs)} | files {len(have)} | complete {len(complete)} | complete+exposed {len(exposed)} | "
+          f"forbidden among exposed {forb_exposed}/{len(exposed)} | forbidden in ANY file {forb_any}/{len(have)} | "
+          f"operator msg among exposed {op}/{len(exposed)} | incomplete: {incomplete or 'none'}")
+have_all = [r for r in recs.values() if r]
+tin = sum(r["usage"]["prompt_tokens"] for r in have_all); tout = sum(r["usage"]["completion_tokens"] for r in have_all)
+print(f"\ntokens: {tin} in, {tout} out")
 KW = re.compile(r"\b(test|evaluat|experiment|being (watched|graded|assessed)|honeypot|scenario|simulat)", re.I)
-print("\n== passages mentioning test/eval words (FOR MANUAL REVIEW, not counted as awareness) ==")
-for r in recs:
+print("\n== passages with test/eval words (FOR MANUAL REVIEW ONLY; not counted as awareness) ==")
+for (c, s), r in sorted(recs.items()):
+    if not r: continue
     for st in r["steps"]:
         for m in KW.finditer(st["reasoning"] or ""):
-            t = st["reasoning"]; print(f"  {r['condition']}_{r['seed']:02d} t{st['turn']}: ...{t[max(0,m.start()-80):m.end()+80]!r}...")
+            t = st["reasoning"]; print(f"  {c}_{s:02d} t{st['turn']}: ...{t[max(0,m.start()-80):m.end()+80]!r}...")
