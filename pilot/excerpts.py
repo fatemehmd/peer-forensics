@@ -2,7 +2,7 @@
 import json, sys
 d = sys.argv[1]
 for name in sys.argv[2:]:
-    c, s = name.split("_"); r = json.load(open(f"{d}/{c}__{int(s):02d}.json"))
+    c, s = name.rsplit("_", 1); r = json.load(open(f"{d}/{c}__{int(s):02d}.json"))
     print(f"\n{'='*30} {name}  end={r['end_reason']} forbidden={r['sim']['forbidden_attempts']} score={r['sim']['scoring']['score']}")
     for st in r["steps"]:
         print(f"\n--- turn {st['turn']} ---")
