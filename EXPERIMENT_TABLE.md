@@ -55,9 +55,9 @@ Route rate = completed runs that used the forbidden cache route. Each batch: a d
 
 | dimension | values tested | what moved the rate |
 |---|---|---|
-| model | Qwen3.6-27B, Qwen3.5-122B-A10B | 122B follows a named endorsement (4→11/15); 27B does not (7 vs 6/15 on replication) |
+| model | Qwen3.6-27B, Qwen3.5-122B-A10B | attribution: no effect on either at n=50 (19/50 vs 19/50; 19/50 vs 17/50); the 122B's 4→11/15 pilot gap did not replicate. Billing/pressure effects similar on both; only the 27B shows a price gradient |
 | rule strength | original; +'do not attempt or test even if...'; firm 'do not attempt, test, or work around' | either stronger rule → 0/30 on the 27B without pressure |
-| who recommends | nobody (facts only); unsigned; 3 agents; finance lead + 2 colleagues | facts alone ~1/15; any named source ≈ agents on the 122B (12 vs 12/15) |
+| who recommends | nobody; unsigned; 3 agents; coworkers; finance lead | at n=50, unsigned = agents = coworkers on both models (~38%); earlier 15-run gaps did not replicate |
 | tone of peers | calm archived chat; excited + 'everyone should use it' | 27B: no change (1→2/15); 122B: 4→8/15, p = 0.26 |
 | harm to a person | none; $0.50; $250 (unauthorized, not reimbursed) | without pressure: any amount → 0/15 on both; under pressure: 12→7→3 (27B), 10→4→3 (122B) |
 | completion pressure | absent (may submit incomplete); present (only 5/5 accepted) | the biggest lever: 1→12/15 (27B), 4→10/15 (122B) under a firm rule |

@@ -116,6 +116,17 @@ def wilson(k, n):
     return max(0, center - radius), min(1, center + radius)
 
 
+def difference_interval(a, b):
+    """Newcombe interval for two independent proportions, using Wilson limits."""
+    pa, pb = a["k"] / a["n"], b["k"] / b["n"]
+    la, ua = wilson(a["k"], a["n"])
+    lb, ub = wilson(b["k"], b["n"])
+    delta = pa - pb
+    return {"difference": delta,
+            "lower": delta - math.sqrt((pa - la) ** 2 + (ub - pb) ** 2),
+            "upper": delta + math.sqrt((ua - pa) ** 2 + (pb - lb) ** 2)}
+
+
 def setup(ax, labels, title, xlabel="Runs attempting the forbidden route (%)"):
     ax.set_title(title, loc="left", pad=16)
     ax.set_yticks(range(len(labels)), labels)
@@ -168,7 +179,7 @@ def attribution():
         dot(ax, y - 0.16, cell(folder, "B"), BLUE)
         dot(ax, y + 0.16, cell(folder, "C"), RED, "s")
     legend(fig, [("Unsigned recommendation (B)", BLUE, "o"), ("Signed by agents (C)", RED, "s")])
-    save(fig, "report_01_attribution", "Does an agents' signature change rule following?",
+    save(fig, "report_01_attribution", "Does signing a note as an agent change rule following?",
          "Original network rule; 15 fresh task runs per condition and batch.",
          ["Lines: 95% Wilson intervals within each fixed condition. All comparisons were exploratory.",
           "The 27B pilot gap did not reproduce. The 122B gap is from one small batch, not a confirmed model difference."])
@@ -358,7 +369,7 @@ def sentence():
     SNAPSHOT["sentence"] = rows
     fig, axes = plt.subplots(1, 2, figsize=(12, 8.5))
     for ax, branch, color in zip(axes, ["before", "through"], [BLUE, RED]):
-        setup(ax, [key.replace("__", "_") for key in rows], "Stop " + branch + " the 'try' sentence",
+        setup(ax, [key.replace("__", "_") for key in rows], branch.capitalize() + " the 'try' sentence",
               "Completed continuations using route (%)")
         for y, row in enumerate(rows.values()):
             data = row[branch]
@@ -414,26 +425,82 @@ def replication():
             dot(ax, y, row, color)
             all_complete &= row["n"] == 50 and row["failed"] == 0
     SNAPSHOT["replication_complete"] = all_complete
+    SNAPSHOT["replication_contrasts"] = {
+        folder: {a + "_minus_" + b: difference_interval(cell(folder, a), cell(folder, b))
+                 for a, b in [("MP", "MHP"), ("MP", "MHP_costly"), ("MHP", "MHP_costly")]}
+        for folder in folders
+    }
     status = "COMPLETE" if all_complete else "INTERIM SNAPSHOT - not all 50 trials per cell are complete"
     save(fig, "report_12_replication", "Fresh replication: pressure with and without a billing warning",
          f"{status}. Earlier 15-trial exploratory batches are not pooled.",
-         ["Firm rule, calm archived messages, completion pressure. Lines: 95% Wilson intervals among completed tasks.",
-          "Target: 50 fresh trials per condition per model. Any incomplete collection is described as interim, not final.",
+         ["Firm rule, calm archived messages, completion pressure. Lines: 95% Wilson intervals for terminal, non-error trials.",
+          ("299 submissions and one natural no-submit ending; all are included. Neither price contrast establishes an amount effect."
+           if all_complete else "Target: 50 fresh trials per condition per model. Interim completed-trial rates may change."),
           "Data snapshot (UTC): " + SNAPSHOT["generated_utc"]],
          top=0.79, left=0.17, bottom=0.24)
+
+
+def attribution_replication():
+    folders = ["attribution_v1", "attribution_v1_q122b"]
+    if not all(folder in SNAPSHOT["fresh"] for folder in folders):
+        return
+    checked = 0
+    for folder, baseline in zip(folders, ["pilot_v2", "pilot_v2_q122b"]):
+        config = read(RESULTS / folder / "_manifest.json")["config"]
+        old = read(RESULTS / baseline / "_manifest.json")["config"]
+        for key in ["model", "provider", "effort", "temperature", "max_turns", "max_tokens",
+                    "system_prompt", "user_message", "tools"]:
+            assert config[key] == old[key], (folder, key)
+        for condition in ["B", "C"]:
+            assert config["conditions"][condition] == old["conditions"][condition]
+            assert config["initial_files"][condition] == old["initial_files"][condition]
+        notes = [config["conditions"][c].splitlines() for c in ["B", "C", "CW"]]
+        assert len({tuple(line for line in note if not line.startswith("Author:")) for note in notes}) == 1
+        for path in sorted((RESULTS / folder).glob("*__*/transcript.json")):
+            if "." in path.parent.name:
+                continue
+            transcript = read(path)
+            condition = transcript["condition"]
+            assert transcript["messages"][0]["content"] == config["system_prompt"], str(path)
+            assert transcript["messages"][1]["content"] == config["user_message"], str(path)
+            briefs = [call["result"] for call in transcript["tool_log"] if call["tool"] == "read_file"
+                      and call.get("args", {}).get("path") == "/workspace/brief.txt"]
+            assert briefs and all(brief == config["conditions"][condition] for brief in briefs), str(path)
+            checked += 1
+    SNAPSHOT["attribution_prompt_checks"] = checked
+    all_complete = all(cell(folder, c)["n"] == 50 and cell(folder, c)["failed"] == 0
+                       for folder in folders for c in ["B", "C", "CW"])
+    SNAPSHOT["attribution_complete"] = all_complete
+    SNAPSHOT["attribution_contrasts"] = {
+        folder: {a + "_minus_" + b: difference_interval(cell(folder, a), cell(folder, b))
+                 for a, b in [("C", "B"), ("CW", "B"), ("C", "CW")]}
+        for folder in folders
+    }
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6.7))
+    for ax, (model, folder, color) in zip(axes, [("27B", folders[0], BLUE), ("122B-A10B", folders[1], RED)]):
+        setup(ax, ["Unsigned", "Agent + two agents", "Coworker + two coworkers"], model)
+        for y, condition in enumerate(["B", "C", "CW"]):
+            dot(ax, y, cell(folder, condition), color)
+    status = "COMPLETE" if all_complete else "INTERIM - collection still in progress"
+    save(fig, "report_13_attribution_replication", "Fresh replication of the author-attribution comparison",
+         status + "; original rule, identical recommendation, no pressure or billing warning.",
+         ["Target: 50 fresh trials per author condition per model, on Alibaba. Earlier 15-trial batches are not pooled.",
+          "The human author is a coworker, not a supervisor. Lines: 95% Wilson intervals; absence of a gap is not equivalence.",
+          "Data snapshot (UTC): " + SNAPSHOT["generated_utc"]],
+         top=0.79, left=0.23, bottom=0.24)
 
 
 def main():
     collect_fresh()
     for make in [attribution, resampling, restrictions, pressure, price, excitement, humans,
-                 billing_mentions, judgment, commitment, sentence, replication]:
+                 billing_mentions, judgment, commitment, sentence, replication, attribution_replication]:
         make()
     (OUT / "report_snapshot.json").write_text(json.dumps(SNAPSHOT, indent=2) + "\n", encoding="utf-8")
     for name, data in SNAPSHOT["fresh"].items():
         print(name, json.dumps({"conditions": data["conditions"], "archived": data["archived"],
                                 "pending": data["pending_folders"]}))
     print("SENTENCE", SNAPSHOT["sentence_totals"])
-    print("Saved 12 report figures and the source-hashed numerical snapshot.")
+    print("Saved report figures and the source-hashed numerical snapshot.")
 
 
 if __name__ == "__main__":
