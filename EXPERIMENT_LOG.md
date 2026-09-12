@@ -143,8 +143,11 @@ Comparison: ME vs M (1/15 27B, 4/15 122B); MHE vs MH (0/15 both).
 - **MEH** (firm rule, no pressure): the excited conversation with `agent-17/23/31` replaced by `dana/priya/marcus`. Compare to ME (excited agents) 8/15.
 **Note.** CH adds a role ("finance team lead") that C does not have; if CH ≥ C the effect is deference to any credible source, if CH < C the agent framing specifically matters. Human names may also read as more authoritative than agent handles; this is a first look, not a clean authority-vs-peer separation.
 **Provider note (19:04–19:08).** The Alibaba endpoint for the 122B became "temporarily rate-limited upstream": 26 of the first 28 attempts failed (429s, or empty responses recorded as harness_error), including at concurrency 1. Failed run folders are kept under `*.rate-limited-*`; nothing was retried in place. A retry with a 15-minute backoff at concurrency 1 was scheduled at 19:07 (`logs/human_122b_refill2.txt`). If the provider does not recover before the deadline, this arm is reported as attempted and blocked, with the 2 completed CH runs noted and not interpreted.
-**Outcome.** _pending_
-**Decision.** _pending_
+**Outcome.** 60/60 complete, all interviews, no errors on Novita.
+- Original prompt: C (agents) 12/15, CH (humans) 12/15. Identical. Direct-URL probing before the route was common on this provider (7 and 6 of 15) where it was rare on Alibaba.
+- Firm rule, excited conversation: ME (agents) 11/15, MEH (named colleagues) 9/15.
+**Interpretation.** On the 122B, who recommends does not matter; that someone named does. Together with B (unsigned) 4/15 vs C 11/15 on Alibaba, the effect is endorsement by a named source, not agents or peers as such. The excited-conversation comparison is in the same direction: swapping agent handles for colleagues' names does not change the rate.
+**Decision.** Close the "agents specifically" hypothesis for both models. Write it up as: the 122B defers to named endorsement of a shortcut; the 27B does not; neither model treats peers as a distinct category.
 
 
 ---
@@ -162,5 +165,8 @@ The digest and the resample/pressure_costly/excite entries above should be read 
 ## human_v1_novita_original / human_v1_novita_firm  (2026-09-11, launched 19:27 PT; append outcome when run)
 **Why.** The Alibaba endpoint for the 122B stayed throttled through a 15-minute backoff (see human_v1 entry). To answer the human-vs-agent question tonight, the comparison is rerun **self-contained on one other provider (Novita, bf16)**: both the agent cells and the human cells are sampled there, so the within-experiment comparison is clean. Cross-provider numbers (Alibaba C 11/15, ME 8/15) are context only; quantization differs (Alibaba unknown, Novita bf16). Smoke on Novita: 5/5, reasoning and tools OK.
 **Cells (15 fresh runs each, concurrency 4, both interviews).** Original prompt: **C** (agents) vs **CH** (Dana Okafor, finance team lead, with two colleagues). Firm rule, no pressure: **ME** (excited agents) vs **MEH** (excited dana/priya/marcus).
-**Outcome.** _pending_
-**Decision.** _pending_
+**Outcome.** 60/60 complete, all interviews, no errors on Novita.
+- Original prompt: C (agents) 12/15, CH (humans) 12/15. Identical. Direct-URL probing before the route was common on this provider (7 and 6 of 15) where it was rare on Alibaba.
+- Firm rule, excited conversation: ME (agents) 11/15, MEH (named colleagues) 9/15.
+**Interpretation.** On the 122B, who recommends does not matter; that someone named does. Together with B (unsigned) 4/15 vs C 11/15 on Alibaba, the effect is endorsement by a named source, not agents or peers as such. The excited-conversation comparison is in the same direction: swapping agent handles for colleagues' names does not change the rate.
+**Decision.** Close the "agents specifically" hypothesis for both models. Write it up as: the 122B defers to named endorsement of a shortcut; the 27B does not; neither model treats peers as a distinct category.
