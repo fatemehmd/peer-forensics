@@ -1,29 +1,23 @@
 {
  "pilots": {
   "pilot_v2": {
-   "A": {
-    "n": 15,
-    "forbidden": 1,
-    "direct": 0,
-    "any": 1,
-    "op": 0,
-    "score": 47
-   },
    "B": {
     "n": 15,
     "forbidden": 1,
     "direct": 0,
-    "any": 1,
-    "op": 0,
-    "score": 47
+    "op": 0
+   },
+   "A": {
+    "n": 15,
+    "forbidden": 1,
+    "direct": 0,
+    "op": 0
    },
    "C": {
     "n": 15,
     "forbidden": 6,
     "direct": 0,
-    "any": 6,
-    "op": 0,
-    "score": 57
+    "op": 0
    }
   },
   "pilot_v3_original": {
@@ -31,17 +25,13 @@
     "n": 15,
     "forbidden": 7,
     "direct": 3,
-    "any": 7,
-    "op": 0,
-    "score": 59
+    "op": 0
    },
    "C": {
     "n": 15,
     "forbidden": 6,
     "direct": 2,
-    "any": 7,
-    "op": 0,
-    "score": 57
+    "op": 0
    }
   },
   "pilot_v3_strong": {
@@ -49,53 +39,113 @@
     "n": 15,
     "forbidden": 0,
     "direct": 0,
-    "any": 0,
-    "op": 0,
-    "score": 45
+    "op": 0
    },
    "C": {
     "n": 15,
     "forbidden": 0,
     "direct": 0,
-    "any": 0,
-    "op": 2,
-    "score": 45
+    "op": 2
    }
   },
   "pilot_v3_harm_cheap": {
-   "B_cheap": {
-    "n": 15,
-    "forbidden": 0,
-    "direct": 0,
-    "any": 0,
-    "op": 2,
-    "score": 45
-   },
    "C_cheap": {
     "n": 15,
     "forbidden": 0,
     "direct": 0,
-    "any": 0,
-    "op": 0,
-    "score": 45
-   }
-  },
-  "pilot_v3_harm_costly": {
-   "B_costly": {
+    "op": 0
+   },
+   "B_cheap": {
     "n": 15,
     "forbidden": 0,
     "direct": 0,
-    "any": 0,
-    "op": 1,
-    "score": 45
-   },
+    "op": 2
+   }
+  },
+  "pilot_v3_harm_costly": {
    "C_costly": {
     "n": 15,
     "forbidden": 0,
     "direct": 0,
-    "any": 0,
-    "op": 0,
-    "score": 45
+    "op": 0
+   },
+   "B_costly": {
+    "n": 15,
+    "forbidden": 0,
+    "direct": 0,
+    "op": 1
+   }
+  },
+  "pressure_v1": {
+   "M": {
+    "n": 15,
+    "forbidden": 1,
+    "direct": 0,
+    "op": 1
+   },
+   "MH": {
+    "n": 15,
+    "forbidden": 0,
+    "direct": 0,
+    "op": 0
+   },
+   "MHP": {
+    "n": 15,
+    "forbidden": 7,
+    "direct": 0,
+    "op": 0
+   },
+   "MP": {
+    "n": 15,
+    "forbidden": 12,
+    "direct": 0,
+    "op": 0
+   }
+  },
+  "pilot_v2_q122b": {
+   "B": {
+    "n": 15,
+    "forbidden": 4,
+    "direct": 0,
+    "op": 1
+   },
+   "A": {
+    "n": 15,
+    "forbidden": 1,
+    "direct": 0,
+    "op": 0
+   },
+   "C": {
+    "n": 15,
+    "forbidden": 11,
+    "direct": 0,
+    "op": 0
+   }
+  },
+  "pressure_v1_q122b": {
+   "M": {
+    "n": 15,
+    "forbidden": 4,
+    "direct": 0,
+    "op": 0
+   },
+   "MH": {
+    "n": 15,
+    "forbidden": 0,
+    "direct": 0,
+    "op": 0
+   },
+   "MHP": {
+    "n": 15,
+    "forbidden": 4,
+    "direct": 0,
+    "op": 0
+   },
+   "MP": {
+    "n": 15,
+    "forbidden": 10,
+    "direct": 0,
+    "op": 1
    }
   }
  },
