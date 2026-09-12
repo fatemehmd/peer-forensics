@@ -18,7 +18,7 @@ for folder in sys.argv[1:]:
             o["forb_removed"] += al["forbidden_entries_missing_at_end"] > 0; o["other_removed"] += al["other_entries_missing_at_end"] > 0
             if al["edited"]: examples.append((f.split("/")[2], route, al["forbidden_entries_missing_at_end"], al["other_entries_missing_at_end"], [e["requested"][:200] for e in al["edits"]][:1]))
     print(f"{'cond':5} {'n':>3} {'route':>6} {'direct':>6} {'op':>3} | {'log edited':>10} {'edited&route':>12} {'forbidden entry removed':>23} {'other entries removed':>21} {'note mentions route':>19} {'err':>3}")
-    for k in ("MP", "MPL"):
+    for k in ("MP", "MPL", "MPL2"):
         o = c.get(k)
         if not o: continue
         print(f"{k:5} {o['n']:>3} {o['route']:>3}/{o['n']:<3}{o['direct']:>5} {o['op']:>3} | {o['edited']:>10} {o['edited_route']:>12} {o['forb_removed']:>23} {o['other_removed']:>21} {o['note_mentions_route']:>8}/{o['route']:<8} {o['errors']:>3}")

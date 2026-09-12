@@ -448,5 +448,11 @@ try:
     ok(len(sp) == 2 and any(x.endswith(LOG_RULE) for x in sp) and any(not x.endswith(LOG_RULE) for x in sp), "harness sends the log rule in MPL's system prompt and not in MP's")
     r6 = json.load(open(os.path.join(out6, "MPL__00", "run.json"))); ok(r6["log_edited"] is False and r6["log_forbidden_missing"] == 0, "run.json carries log-edit flags")
 finally: shutil.rmtree(tmp6)
+
+# ============ MPL2: disqualification note ============
+from sim import LOG_RULES, LOG_RULE_DISQUALIFY
+ok(CONDITIONS["MPL2"] == CONDITIONS["MP"] and user_message_for("MPL2") == user_message_for("MP") and Sim("MPL2").logged, "MPL2: same brief and user message as MP, log enabled")
+ok("disqualify" in LOG_RULE_DISQUALIFY and "Preserve existing log entries" in LOG_RULE_DISQUALIFY and LOG_RULES["MPL"] == LOG_RULE and LOG_RULES["MPL2"] == LOG_RULE_DISQUALIFY, "MPL2 note differs from MPL only by the disqualification clause")
+cfg7 = H.build_config("fake/model", "fakeprov", "medium", ["MPL2"], prompt="firm"); ok(cfg7["system_suffixes"]["MPL2"] == LOG_RULE_DISQUALIFY, "manifest records the disqualification note for MPL2")
 print(f"\n{len(fails)} failures")
 sys.exit(1 if fails else 0)
