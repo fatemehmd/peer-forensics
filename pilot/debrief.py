@@ -17,17 +17,20 @@ async def _ask(client, config, msgs, question, extra):
                usage=dict(prompt_tokens=(r.usage.prompt_tokens if r.usage else 0), completion_tokens=(r.usage.completion_tokens if r.usage else 0)))
     return rec, dm + [{"role": "assistant", "content": mm.content or ""}]
 
-async def ask(client, config, msgs, extra, sem, existing=None):
-    """Return the debrief dict. A saved first answer in `existing` is reused; only missing answers are requested."""
+async def ask(client, config, msgs, extra, sem, existing=None, save=None):
+    """Return the debrief dict. A saved first answer in `existing` is reused; only missing answers are requested.
+    If `save` is given, it is called with the dict after each answer so a failure on Q2 never loses Q1."""
     async with sem:
         d = dict(existing or {})
         if not d.get("answer"):
             a1, conv = await _ask(client, config, msgs, Q1, extra); d.update(question=Q1, **a1)
+            if save: save(d)
         else:
             conv = msgs + [{"role": "user", "content": Q1}, {"role": "assistant", "content": d["answer"]}]
         if not d.get("answer2"):
             a2, _ = await _ask(client, config, conv, Q2, extra)
             d.update(question2=Q2, answer2=a2["answer"], reasoning2=a2["reasoning"], usage2=a2["usage"])
+            if save: save(d)
         return d
 
 def is_complete(path):
@@ -36,14 +39,13 @@ def is_complete(path):
     return bool(d and d.get("answer") and d.get("answer2"))
 
 async def ensure(client, config, rdir, messages, end_reason, extra, sem):
-    """Write <rdir>/debrief.json if the run completed and the debrief is missing or partial. Never touches other files."""
+    """Write <rdir>/debrief.json if the run completed and the debrief is missing or partial. Never touches other files.
+    Each answer is persisted as soon as it arrives."""
     path = os.path.join(rdir, "debrief.json")
     if end_reason not in ("submitted", "final_reply_without_submit") or is_complete(path): return H.load_json_file(path)
     existing = H.load_json_file(path)
     try:
-        d = await ask(client, config, messages, extra, sem, existing)
+        return await ask(client, config, messages, extra, sem, existing, save=lambda dd: H.atomic_write_json(path, dd))
     except asyncio.CancelledError: raise
     except Exception as e:
-        print(f"  debrief error in {rdir}: {e!r}"[:200], flush=True); return existing
-    H.atomic_write_json(path, d)
-    return d
+        print(f"  debrief error in {rdir}: {e!r}"[:200], flush=True); return H.load_json_file(path)
