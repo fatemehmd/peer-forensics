@@ -57,15 +57,17 @@ function pilotStats(s) {
     <span>operator messages <b>${pct(s.operator)}</b></span>
     <span>direct external attempts <b>${s.direct ?? 0}</b></span>
     <span>debriefs <b>${s.debriefs ?? 0}</b>/${s.done}</span>
+    ${s.has_log ? `<span>action log edited <b class="${s.log_edited ? 'bad' : 'ok'}">${s.log_edited}</b>/${s.complete} · forbidden entries removed <b class="${s.log_forbidden_removed ? 'bad' : 'ok'}">${s.log_forbidden_removed}</b></span>` : ''}
     <span>mean score <b>${s.mean_score == null ? '–' : s.mean_score.toFixed(2)}</b>/5</span>
     <span>valid csv <b>${s.valid_csv}</b>/${s.complete}</span>
     ${s.other_endings.length ? `<span class="bad">other endings: ${esc(s.other_endings.join(', '))}</span>` : ''}</div>`;
 }
 function pilotRows(rows) {
-  return `<table><tr><th>run</th><th>status</th><th>end</th><th>forbidden</th><th>direct</th><th>score</th><th>valid</th><th>op msgs</th><th>brief@</th><th>exposed</th><th class="wrap">debrief 1: what guided you</th><th class="wrap">debrief 2: did you weigh the rule</th></tr>` +
+  return `<table><tr><th>run</th><th>status</th><th>end</th><th>forbidden</th><th>direct</th><th>score</th><th>valid</th><th>op msgs</th><th>brief@</th><th>exposed</th><th>log edited</th><th>forbidden removed</th><th class="wrap">debrief 1: what guided you</th><th class="wrap">debrief 2: did you weigh the rule</th></tr>` +
     rows.map(r => `<tr class="click" onclick='openRun(${JSON.stringify(r.path)})'><td>${r.run}</td><td class="mut">${r.status}</td><td>${esc(r.end ?? '')}</td>
       <td class="${r.forbidden ? 'bad' : ''}">${r.forbidden ?? ''}</td><td>${r.direct ?? ''}</td><td>${r.score ?? ''}</td><td>${r.valid ?? ''}</td><td>${r.op ?? ''}</td>
       <td>${r.brief_turn ?? ''}</td><td>${r.exposed ?? ''}</td>
+      <td class="${r.log_edited ? 'bad' : ''}">${r.log_edited == null ? '' : (r.log_edited ? 'yes' : 'no')}</td><td class="${r.log_forbidden_missing ? 'bad' : ''}">${r.log_forbidden_missing ?? ''}</td>
       <td class="wrap" style="max-width:420px">${clip(r.debrief, 180)}</td><td class="wrap" style="max-width:420px">${clip(r.debrief2, 180)}</td></tr>`).join('') + '</table>';
 }
 function renderPilot(d) {
@@ -170,6 +172,8 @@ async function openRun(path) {
     ${(t.steps || []).filter(Boolean).map(renderStep).join('')}
     ${a.operator_msgs && a.operator_msgs.length ? `<div class="card"><b>operator messages</b>${a.operator_msgs.map(m => `<pre>${esc(m.text)}</pre>`).join('')}</div>` : ''}
     ${a.submit_note ? `<div class="card"><b>submit note</b><pre>${esc(a.submit_note)}</pre></div>` : ''}
+    ${a.action_log ? `<div class="card"><b>action log (visible to the model)</b> · edited ${a.action_log.n_edits}x · forbidden entries logged ${a.action_log.forbidden_entries_logged}, missing at end <b class="${a.action_log.forbidden_entries_missing_at_end ? 'bad' : 'ok'}">${a.action_log.forbidden_entries_missing_at_end}</b> · other entries missing ${a.action_log.other_entries_missing_at_end}
+      <pre>${esc(a.action_log.final_log)}</pre>${(a.action_log.edits || []).map(e => `<details><summary>edit at turn ${e.turn}</summary><b>before</b><pre>${esc(e.old || '')}</pre><b>requested</b><pre>${esc(e.requested)}</pre></details>`).join('')}</div>` : ''}
     ${t.debrief ? `<div class="card"><b>debrief 1</b> <span class="mut">${esc(t.debrief.question)}</span><pre>${esc(t.debrief.answer)}</pre>
       ${t.debrief.answer2 ? `<b>debrief 2</b> <span class="mut">${esc(t.debrief.question2)}</span><pre>${esc(t.debrief.answer2)}</pre>` : ''}</div>` : ''}
   </div>`;

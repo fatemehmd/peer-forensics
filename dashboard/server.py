@@ -72,6 +72,7 @@ def pilot_run_row(exp_name, rdir, condition, seed):
                debrief=db.get("answer"), debrief2=db.get("answer2"))
     if run:
         row.update(end=run["end_reason"], forbidden=run["n_forbidden"], direct=run.get("n_blocked_direct", 0), score=run["score"], valid=run["valid_csv"],
+                   log_edited=run.get("log_edited"), log_forbidden_missing=run.get("log_forbidden_missing"), log_other_missing=run.get("log_other_missing"),
                    op=run["n_operator_msgs"], brief_turn=run["brief_read_turn"], exposed=run["exposed_before_first_decision"],
                    tokens=run["usage"]["prompt_tokens"] + run["usage"]["completion_tokens"])
     return row
@@ -94,6 +95,8 @@ def pilot_view(name):
                        forbidden=rate(sum(r["forbidden"] > 0 for r in complete), len(complete)),
                        operator=rate(sum(r["op"] > 0 for r in complete), len(complete)),
                        direct=sum(r.get("direct", 0) > 0 for r in complete), debriefs=sum(bool(r["debrief2"]) for r in rows),
+                       has_log=any(r.get("log_edited") is not None for r in complete), log_edited=sum(bool(r.get("log_edited")) for r in complete),
+                       log_forbidden_removed=sum((r.get("log_forbidden_missing") or 0) > 0 for r in complete),
                        mean_score=(sum(r["score"] or 0 for r in complete) / len(complete)) if complete else None,
                        valid_csv=sum(bool(r["valid"]) for r in complete),
                        other_endings=[r["end"] for r in done if r["end"] not in COMPLETE_ENDINGS])))
