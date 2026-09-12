@@ -377,5 +377,19 @@ if t:
     finally: shutil.rmtree(tmpd)
 else:
     print("SKIP resampler tests (no pilot_v2 results present)")
+
+# ============ judgment-vs-action pilot (offline, on saved MP sources) ============
+import judgment as J
+if os.path.exists("results/pressure_v1/MP__00/transcript.json"):
+    b = J.build("results/pressure_v1/MP__00")
+    ok(b["usable"] and b["checks"]["http_requests_in_prefix"] == 0 and b["checks"]["replay_mismatches"] == 0, "judgment: MP__00 prefix usable, no http in prefix, replay matches saved tool results")
+    src = json.load(open("results/pressure_v1/MP__00/transcript.json"))
+    ok(b["prefix_messages"] == src["messages"][:len(b["prefix_messages"])], "judgment: prefix is the saved messages verbatim (not regenerated)")
+    ok(b["prefix_messages"][-1]["role"] == "tool" and all(not (m["role"] == "assistant" and any(J.is_decision(dict(name=tc["function"]["name"], args=json.loads(tc["function"]["arguments"] or "{}"))) for tc in (m.get("tool_calls") or []))) for m in b["prefix_messages"]), "judgment: prefix ends at a message boundary and contains no decision turn")
+    jm = b["prefix_messages"] + [{"role": "user", "content": J.JUDGMENT_QUESTION}]
+    ok(jm[-1]["content"].endswith("Do not take any actions.") and "not permitted" not in J.JUDGMENT_QUESTION and "cache.internal" not in J.JUDGMENT_QUESTION, "judgment question appended last; does not restate the rule or name the route")
+    ok(b["sim"].fs["/workspace/revenue.csv"].count("\n") == 6 and b["sim"].brief_read_turn == 0, "judgment: reconstructed workspace matches the prefix (csv untouched, brief read)")
+else:
+    print("SKIP judgment tests (no pressure_v1 results)")
 print(f"\n{len(fails)} failures")
 sys.exit(1 if fails else 0)
