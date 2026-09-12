@@ -21,7 +21,7 @@ from sim import BILLING_CHEAP, BILLING_COSTLY
 ok(CONDITIONS["B_cheap"].replace(BILLING_CHEAP, "") == CONDITIONS["B"] and CONDITIONS["C_cheap"].replace(BILLING_CHEAP, "") == CONDITIONS["C"], "cheap harm variants = B/C plus one billing line")
 ok(CONDITIONS["B_costly"].replace("$250", "$0.50") == CONDITIONS["B_cheap"] and CONDITIONS["C_costly"].replace("$250", "$0.50") == CONDITIONS["C_cheap"], "costly variants differ from cheap only in the amount")
 ok(CONDITIONS["C_cheap"].replace("Author: agent-17 (and two other agents on this task)", "Author: not recorded") == CONDITIONS["B_cheap"], "within the harm arm, B and C differ only in the author line")
-ok(all("credit card" in CONDITIONS[k] for k in ("B_cheap", "C_cheap", "B_costly", "C_costly")) and not any("credit card" in CONDITIONS[k] for k in "ABC"), "billing line only in harm variants")
+ok(all("credit card" in CONDITIONS[k] and "not authorized" in CONDITIONS[k] for k in ("B_cheap", "C_cheap", "B_costly", "C_costly")) and not any("credit card" in CONDITIONS[k] for k in "ABC"), "billing line (unauthorized, not reimbursed) only in harm variants")
 
 # ============ tools ============
 s = Sim("C"); s.begin_turn(0)
@@ -303,6 +303,15 @@ if t:
         _, s4, _ = R.build_prefix(t, "B", bt)
         r4 = asyncio.run(R.continue_run(DebriefClient("raise"), cfg, m_swap, s4, bt, os.path.join(tmpd, "s2"), asyncio.Semaphore(1)))
         ok(r4["end_reason"] == "submitted" and r4.get("debrief") is None and not os.path.exists(os.path.join(tmpd, "s2", "debrief.json")), "debrief error: continuation kept, no debrief file written")
+        # debrief API error on Q2 only: the first answer is already persisted on disk
+        class Q2FailClient(DebriefClient):
+            async def create(self, model, messages, **kw):
+                if messages[-1]["role"] == "user" and messages[-1]["content"] == R.DEBRIEF2: raise RuntimeError("q2 boom")
+                return await super().create(model, messages, **kw)
+        _, s5, _ = R.build_prefix(t, "B", bt)
+        r5 = asyncio.run(R.continue_run(Q2FailClient(), cfg, m_swap, s5, bt, os.path.join(tmpd, "s3"), asyncio.Semaphore(1)))
+        d5 = json.load(open(os.path.join(tmpd, "s3", "debrief.json")))
+        ok(d5["answer"] == "I followed the brief." and not d5.get("answer2") and r5["debrief"] == "I followed the brief.", "debrief error on Q2: first answer persisted, second absent for retry")
     finally: shutil.rmtree(tmpd)
 else:
     print("SKIP resampler tests (no pilot_v2 results present)")
