@@ -51,6 +51,7 @@ def log_entry(name):
 def experiment_kind(d):
     if os.path.exists(os.path.join(d, "_manifest.json")): return "pilot"
     if glob.glob(os.path.join(d, "*", "meta.json")): return "resample"
+    if glob.glob(os.path.join(d, "*", "*", "judgment-*")): return "judgment"
     return "other"
 
 def list_experiments():
@@ -147,6 +148,33 @@ def resample_view(name):
     return dict(kind="resample", name=name, groups=groups, pairs=resample_pairs(groups),
                 pooled={t: rate(k, n) for t, (k, n) in sorted(pooled.items())}, notes=log_entry(name))
 
+# ---------------------------------------------------------------- judgment view
+def judgment_view(name):
+    d = safe_path(RESULTS, name)
+    labels = load_json(os.path.join(d, "labels_and_summary.json"), {}).get("labels", {})
+    models = []
+    for mdir in sorted(x for x in glob.glob(os.path.join(d, "*")) if os.path.isdir(x)):
+        model = os.path.basename(mdir); sources = []
+        for sdir in sorted(x for x in glob.glob(os.path.join(mdir, "*")) if os.path.isdir(x)):
+            src = os.path.basename(sdir); meta = load_json(os.path.join(sdir, "meta.json"), {})
+            acts = []
+            for ad in sorted(glob.glob(os.path.join(sdir, "action-*"))):
+                t = load_json(os.path.join(ad, "transcript.json"), {}); a = t.get("actions", {})
+                acts.append(dict(name=os.path.basename(ad), path=f"{name}/{model}/{src}/{os.path.basename(ad)}", end=t.get("end_reason"),
+                                 route=a.get("n_forbidden_attempts", 0) > 0, direct=len(a.get("blocked_direct", [])) > 0))
+            juds = []
+            for jd in sorted(glob.glob(os.path.join(sdir, "judgment-*"))):
+                j = load_json(os.path.join(jd, "judgment.json"), {}); lab = labels.get(model, {}).get(src, {}).get(os.path.basename(jd), {})
+                juds.append(dict(name=os.path.basename(jd), content=j.get("content"), reasoning=j.get("reasoning"), error=j.get("error"),
+                                 label=lab.get("label"), excerpt=lab.get("excerpt"), note=lab.get("note")))
+            complete = [x for x in acts if x["end"] in COMPLETE_ENDINGS]
+            sources.append(dict(source=src, original=meta.get("original_outcome"), branch_turn=(meta.get("checks") or {}).get("branch_turn"),
+                                usable=meta.get("usable"), actions=acts, judgments=juds,
+                                route=rate(sum(x["route"] for x in complete), len(complete)),
+                                reject=sum(1 for x in juds if (x["label"] or "").startswith("rejects")), n_j=len(juds)))
+        models.append(dict(model=model, sources=sources))
+    return dict(kind="judgment", name=name, models=models, question=(load_json(glob.glob(os.path.join(d, "*", "*", "meta.json"))[0], {}) if glob.glob(os.path.join(d, "*", "*", "meta.json")) else {}).get("judgment_question"), notes=log_entry(name))
+
 # ---------------------------------------------------------------- transcript + logs
 def prefix_steps(messages):
     """Turn a frozen message prefix (from a resample group's meta.json) into step records so the
@@ -196,7 +224,7 @@ INDEX_HTML = read_text(os.path.join(os.path.dirname(__file__), "index.html"))
 
 ROUTES = {
     "/api/experiments": lambda q: dict(experiments=list_experiments(), logs=sorted(os.path.basename(f) for f in glob.glob(os.path.join(LOGS, "*.txt")))),
-    "/api/experiment": lambda q: pilot_view(q["name"]) if q.get("kind") == "pilot" else resample_view(q["name"]),
+    "/api/experiment": lambda q: {"pilot": pilot_view, "resample": resample_view, "judgment": judgment_view}.get(q.get("kind"), resample_view)(q["name"]),
     "/api/transcript": lambda q: transcript_view(q["path"]),
     "/api/log": lambda q: log_tail(q["name"], int(q.get("n", 300))),
 }

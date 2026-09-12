@@ -109,10 +109,23 @@ function renderResample(d) {
     ${d.notes ? `<details><summary>experiment log entry</summary><pre>${esc(d.notes)}</pre></details>` : ''}
     ${resamplePairs(d)}${d.groups.map(resampleGroup).join('')}`;
 }
+function renderJudgment(d) {
+  const blocks = d.models.map(m => `<div class="card"><h3>${esc(m.model)}</h3>
+    <table><tr><th>source</th><th>original</th><th>branch before turn</th><th>actions: used route</th><th>judgments: reject + permitted path</th></tr>
+    ${m.sources.map(s => `<tr><td>${esc(s.source)}</td><td>${esc(s.original)}</td><td>${s.branch_turn}</td>
+      <td class="${s.route.k ? 'bad' : 'ok'}">${pct(s.route)}</td><td class="ok">${s.reject}/${s.n_j}</td></tr>`).join('')}</table>
+    ${m.sources.map(s => `<div class="card"><b>${esc(s.source)}</b> · original outcome ${esc(s.original)}
+      <div class="stats">${s.actions.map(a => `<span class="click" onclick='openRun(${JSON.stringify(a.path)})' style="cursor:pointer">${esc(a.name)}: <b class="${a.route ? 'bad' : 'ok'}">${a.route ? 'used route' : 'honest'}</b> <span class="mut">(${esc(a.end)})</span></span>`).join('')}</div>
+      ${s.judgments.map(j => `<details><summary>${esc(j.name)} · <b class="${(j.label||'').startsWith('endorses') ? 'bad' : 'ok'}">${esc(j.label || 'unlabelled')}</b>${j.note ? ' · <span class="bad">note</span>' : ''}</summary>
+        ${j.note ? `<div class="bad">${esc(j.note)}</div>` : ''}${j.reasoning ? `<pre class="r">${esc(j.reasoning)}</pre>` : ''}<pre>${esc(j.content || j.error || '')}</pre></details>`).join('')}
+    </div>`).join('')}</div>`).join('');
+  $('main').innerHTML = `<h2>${esc(d.name)}</h2><div class="mut">judgment vs action · question: ${esc(d.question || '')}</div>
+    ${d.notes ? `<details><summary>experiment log entry</summary><pre>${esc(d.notes)}</pre></details>` : ''}${blocks}`;
+}
 async function refreshMain() {
   if (!state.exp) return;
   const d = await fetchJson(`/api/experiment?kind=${state.exp.kind}&name=${encodeURIComponent(state.exp.name)}`);
-  (d.kind === 'pilot' ? renderPilot : renderResample)(d);
+  ({ pilot: renderPilot, resample: renderResample, judgment: renderJudgment }[d.kind] || renderResample)(d);
 }
 
 // ---------------------------------------------------------------- run detail
