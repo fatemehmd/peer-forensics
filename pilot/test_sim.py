@@ -205,6 +205,52 @@ finally:
     shutil.rmtree(tmp)
 
 
+# ============ prompt variants + harness debrief flag ============
+ok(H.PROMPTS["strong"].startswith(H.PROMPTS["original"].split("Work with the available")[0]) and H.STRONG_SENTENCE in H.PROMPTS["strong"] and H.STRONG_SENTENCE not in H.PROMPTS["original"] and H.PROMPTS["strong"].replace(H.STRONG_SENTENCE + "\n", "") == H.PROMPTS["original"], "strong prompt = original + one inserted sentence, nothing else")
+class HarnessDebriefClient(FakeClient):
+    def __init__(self, scripts): super().__init__(scripts); self.debrief_calls = 0; self.system_prompts = set()
+    async def create(self, model, messages, **kw):
+        self.system_prompts.add(messages[0]["content"])
+        import debrief as DBm
+        if messages[-1]["role"] == "user" and messages[-1]["content"] in (DBm.Q1, DBm.Q2):
+            self.debrief_calls += 1
+            ans = "guided by the brief" if messages[-1]["content"] == DBm.Q1 else "yes, weighed it"
+            return NS(usage=NS(prompt_tokens=1, completion_tokens=1), model_extra={}, choices=[NS(finish_reason="stop", message=NS(model_extra={}, reasoning=None, content=ans, tool_calls=None))])
+        return await super().create(model, messages, **kw)
+tmp2 = tempfile.mkdtemp()
+try:
+    cfgS = H.build_config("fake/model", "fakeprov", "medium", ["B", "C"], prompt="strong")
+    ok(cfgS["prompt_variant"] == "strong" and cfgS["system_prompt"] == H.PROMPTS["strong"], "config records prompt variant and its text")
+    outS = os.path.join(tmp2, "strong")
+    hc = HarnessDebriefClient({"A": [READ, SUB], "B": [READ, SUB], "C": [READ, FORB, SUB]})
+    with contextlib.redirect_stdout(io.StringIO()):
+        asyncio.run(H.run_batch(hc, cfgS, [("B", 0), ("C", 0)], outS, 1, debrief_on=True))
+    ok(hc.system_prompts == {H.PROMPTS["strong"]}, "strong variant: every model call used the strong system prompt")
+    setup = json.load(open(os.path.join(outS, "C__00", "setup.json")))
+    ok(setup["messages"][0]["content"] == H.PROMPTS["strong"] and setup["config_keys"]["prompt_variant"] == "strong", "setup.json records the strong prompt and variant")
+    dbC = json.load(open(os.path.join(outS, "C__00", "debrief.json")))
+    ok(dbC["answer"] == "guided by the brief" and dbC["answer2"] == "yes, weighed it" and hc.debrief_calls == 4, "harness --debrief: both questions asked after each of the two runs, saved to debrief.json")
+    runC = json.load(open(os.path.join(outS, "C__00", "run.json")))
+    ok("n_blocked_direct" in runC and runC["n_forbidden"] == 1, "run.json carries direct-attempt count alongside forbidden count")
+    # rerun with debrief on: nothing re-executed, no new debrief calls
+    hc2 = HarnessDebriefClient({"A": [READ, SUB], "B": [READ, SUB], "C": [READ, FORB, SUB]})
+    with contextlib.redirect_stdout(io.StringIO()):
+        asyncio.run(H.run_batch(hc2, cfgS, [("B", 0), ("C", 0)], outS, 1, debrief_on=True))
+    ok(hc2.calls == 0 and hc2.debrief_calls == 0, "rerun: complete runs with complete debriefs are not touched")
+    # a run without debrief gets only the debrief on rerun
+    os.remove(os.path.join(outS, "B__00", "debrief.json"))
+    hc3 = HarnessDebriefClient({"A": [READ, SUB], "B": [READ, SUB], "C": [READ, FORB, SUB]})
+    with contextlib.redirect_stdout(io.StringIO()):
+        asyncio.run(H.run_batch(hc3, cfgS, [("B", 0), ("C", 0)], outS, 1, debrief_on=True))
+    ok(hc3.debrief_calls == 2 and hc3.calls == 2 and os.path.exists(os.path.join(outS, "B__00", "debrief.json")), "rerun: missing debrief is backfilled without rerunning the continuation")
+    # prompt mismatch in the same folder is refused
+    refused = False
+    try:
+        with contextlib.redirect_stdout(io.StringIO()): asyncio.run(H.run_batch(HarnessDebriefClient({}), H.build_config("fake/model", "fakeprov", "medium", ["B", "C"], prompt="original"), [("B", 1)], outS, 1))
+    except H.ConfigMismatch: refused = True
+    ok(refused, "original prompt into the strong folder: refused")
+finally: shutil.rmtree(tmp2)
+
 # ============ resampler: prefix reconstruction + swap + debrief (offline) ============
 import resample as R
 _fails_before = len(fails)

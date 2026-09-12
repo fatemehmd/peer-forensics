@@ -23,17 +23,18 @@ def main():
     d = sys.argv[1]
     man, runs = load_runs(d)
     cfg = man["config"]
-    print(f"model={cfg['model']} provider={cfg['provider']} effort={cfg['effort']} T={cfg['temperature']} code={cfg['code_hashes']}\n")
-    print(f"{'run':6} {'status':13} {'end':26} {'brief@':6} {'exposed':7} {'forbid':6} {'score':5} {'valid':5} {'supp':4} {'op':3} {'rsn':3} problems")
+    print(f"model={cfg['model']} provider={cfg['provider']} effort={cfg['effort']} T={cfg['temperature']} prompt={cfg.get('prompt_variant','original')} code={cfg['code_hashes']}\n")
+    print(f"{'run':6} {'status':13} {'end':26} {'brief@':6} {'exposed':7} {'forbid':6} {'direct':6} {'score':5} {'valid':5} {'supp':4} {'op':3} {'rsn':3} {'dbf':3} problems")
     for (c, s), r in sorted(runs.items()):
         t, g = r["transcript"], (r["grade"] or {}).get("grade")
         if t is None:
             lc = r.get("last_checkpoint"); nf = len(lc["sim_state"]["forbidden_attempts"]) if lc else "?"
             print(f"{c}_{s:02d}  {r['status']:13} {'(no transcript)':26} {'?':6} {'?':7} {nf!s:6}"); continue
         a = t["actions"]; ge = (r["grade"] or {}).get("error")
+        dbf = os.path.exists(os.path.join(d, f"{c}__{s:02d}", "debrief.json"))
         print(f"{c}_{s:02d}  {r['status']:13} {t['end_reason'][:26]:26} {str(a['brief_read_turn']):6} {str(a['exposed_before_first_decision']):7} "
-              f"{a['n_forbidden_attempts']:6} {str(g['score'] if g else 'ERR'):5} {str(g['valid_csv'] if g else 'ERR'):5} "
-              f"{str(g['correct_and_supported'] if g else '-'):4} {len(a['operator_msgs']):3} {int(any(st['reasoning'] for st in t['steps'])):3} "
+              f"{a['n_forbidden_attempts']:6} {len(a['blocked_direct']):6} {str(g['score'] if g else 'ERR'):5} {str(g['valid_csv'] if g else 'ERR'):5} "
+              f"{str(g['correct_and_supported'] if g else '-'):4} {len(a['operator_msgs']):3} {int(any(st['reasoning'] for st in t['steps'])):3} {int(dbf):3} "
               f"{(g['problems'] if g else ['grade_error: ' + (ge or '')[:60]])}")
     print("\n== counts ==")
     for c in sorted(set(c for c, _ in runs)):
@@ -44,10 +45,12 @@ def main():
         forb_exp = sum(r["transcript"]["actions"]["n_forbidden_attempts"] > 0 for r in exposed)
         forb_any = sum(r["transcript"]["actions"]["n_forbidden_attempts"] > 0 for r in with_t) + sum(len(r["last_checkpoint"]["sim_state"]["forbidden_attempts"]) > 0 for r in rs if r.get("last_checkpoint"))
         op = sum(bool(r["transcript"]["actions"]["operator_msgs"]) for r in exposed)
+        direct = sum(bool(r["transcript"]["actions"]["blocked_direct"]) for r in exposed)
+        any_attempt = sum(bool(r["transcript"]["actions"]["blocked_direct"]) or r["transcript"]["actions"]["n_forbidden_attempts"] > 0 for r in exposed)
         valid = sum(bool((r["grade"] or {}).get("grade", {}) and r["grade"]["grade"]["valid_csv"]) for r in complete)
         other = [r["transcript"]["end_reason"] for r in with_t if r not in complete] + [r["status"] for r in rs if not r["transcript"]]
         print(f"{c}: scheduled {len(rs)} | transcripts {len(with_t)} | complete {len(complete)} | complete+exposed {len(exposed)} | "
-              f"forbidden among exposed {forb_exp}/{len(exposed)} | forbidden in ANY record {forb_any}/{len(rs)} | "
+              f"forbidden among exposed {forb_exp}/{len(exposed)} | direct external attempts {direct}/{len(exposed)} | any network attempt {any_attempt}/{len(exposed)} | forbidden in ANY record {forb_any}/{len(rs)} | "
               f"operator msg among exposed {op}/{len(exposed)} | valid csv among complete {valid}/{len(complete)} | other endings: {other or 'none'}")
     ts = [r["transcript"] for r in runs.values() if r["transcript"]]
     print(f"\ntokens: {sum(t['usage']['prompt_tokens'] for t in ts)} in, {sum(t['usage']['completion_tokens'] for t in ts)} out")
