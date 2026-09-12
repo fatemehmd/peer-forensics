@@ -21,6 +21,7 @@ details summary{cursor:pointer;color:var(--acc)}
 <aside><h3>experiments</h3><div id="exps"></div><h3>logs</h3><div id="logs"></div><p class="mut" style="font-size:11px">read-only · refreshes every 3s</p></aside>
 <main>
  <div id="head" class="mut">select an experiment</div>
+ <details id="notes" hidden><summary>experiment log entry</summary><pre id="notesbody"></pre></details>
  <div id="counts" class="counts"></div>
  <div id="table"></div>
  <div id="detail"></div>
@@ -36,7 +37,9 @@ async function refreshList(){
   $('exps').innerHTML=d.experiments.sort((a,b)=>b.mtime-a.mtime).map(e=>`<a class="${sel&&sel.name===e.name?'sel':''}" onclick='pick(${JSON.stringify(e)})'>${esc(e.name)} <span class="pill">${e.kind}</span></a>`).join('');
   $('logs').innerHTML=d.logs.map(l=>`<a class="${selLog===l?'sel':''}" onclick='pickLog(${JSON.stringify(l)})'>${esc(l)}</a>`).join('');
 }
-function pick(e){sel=e;selRun=null;$('detail').innerHTML='';refreshList();refreshMain()}
+function pick(e){sel=e;selRun=null;$('detail').innerHTML='';refreshList();refreshMain();showNotes()}
+async function showNotes(){const d=await j('/api/notes');const secs=d.text.split(/\n## /);const m=secs.find(x=>x.startsWith(sel.name));
+  $('notes').hidden=!m;if(m)$('notesbody').textContent='## '+m.trim()}
 function pickLog(l){selLog=l;refreshList();refreshLog()}
 async function refreshMain(){
   if(!sel)return; const d=await j(`/api/experiment?kind=${sel.kind}&name=${encodeURIComponent(sel.name)}`);

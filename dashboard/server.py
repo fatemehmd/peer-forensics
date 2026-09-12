@@ -98,6 +98,10 @@ class Handler(BaseHTTPRequestHandler):
                 k = q.get("kind"); self.send_json(pilot_view(q["name"]) if k == "pilot" else resample_view(q["name"]))
             elif u.path == "/api/transcript": self.send_json(transcript_view(q["path"]))
             elif u.path == "/api/log": self.send_json(log_tail(q["name"], int(q.get("n", 200))))
+            elif u.path == "/api/notes":
+                try: txt = open(os.path.join(ROOT, "EXPERIMENT_LOG.md")).read()
+                except FileNotFoundError: txt = ""
+                self.send_json(dict(text=txt))
             else: self.send_json(dict(error="not found"), 404)
         except PermissionError: self.send_json(dict(error="forbidden"), 403)
         except Exception as e: self.send_json(dict(error=repr(e)), 500)
