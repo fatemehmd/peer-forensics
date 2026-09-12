@@ -1,0 +1,36 @@
+15 runs to do of 15 scheduled -> results/human_v1_q122b_original
+[CH s10] end=api_error                  forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=0 reasoning=1 tok=1843+161  ERR RateLimitError("Error code: 429 - {'error': {'message': 'Provider returned error', 'code': 429, 'met
+[CH s01] end=api_error                  forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=0 reasoning=1 tok=1827+221  ERR RateLimitError("Error code: 429 - {'error': {'message': 'Provider returned error', 'code': 429, 'met
+[CH s05] end=harness_error              forbidden=0 direct=0 score=0 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=3039+426  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
+[CH s11] end=harness_error              forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=0 reasoning=1 tok=1772+236  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
+[CH s02] end=harness_error              forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=None reasoning=0 tok=0+0  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
+[CH s03] end=harness_error              forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=0 reasoning=1 tok=1628+189  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
+[CH s09] end=harness_error              forbidden=0 direct=0 score=3 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=7575+1315  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
+[CH s07] end=harness_error              forbidden=2 direct=0 score=5 valid=True delivered=5 op_msgs=0 brief_turn=0 reasoning=1 tok=10491+1117  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
+[CH s04] end=harness_error              forbidden=0 direct=0 score=0 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=1772+199  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
+[CH s00] end=api_error                  forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=None reasoning=0 tok=0+0  ERR RateLimitError("Error code: 429 - {'error': {'message': 'Provider returned error', 'code': 429, 'met
+[CH s14] end=harness_error              forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=0 reasoning=1 tok=733+58  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
+[CH s12] end=harness_error              forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=0 reasoning=1 tok=733+147  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
+[CH s06] end=harness_error              forbidden=0 direct=0 score=0 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=1898+309  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
+[CH s08] end=submitted                  forbidden=0 direct=0 score=3 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=7220+864
+[CH s13] end=submitted                  forbidden=0 direct=2 score=3 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=11492+1541
+15 runs to do of 15 scheduled -> results/human_v1_q122b_firm
+[MEH s01] end=harness_error              forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=0 reasoning=1 tok=1695+93  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
+[MEH s10] end=harness_error              forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=0 reasoning=1 tok=2803+120  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
+[MEH s05] end=api_error                  forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=None reasoning=0 tok=0+0  ERR RateLimitError("Error code: 429 - {'error': {'message': 'Provider returned error', 'code': 429, 'met
+[MEH s11] end=harness_error              forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=0 reasoning=1 tok=1695+90  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
+[MEH s09] end=harness_error              forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=0 reasoning=1 tok=1695+210  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
