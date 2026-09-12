@@ -22,7 +22,7 @@ OUT = ROOT / "figs"
 BLUE, RED, GREEN = "#2866A6", "#C75452", "#298172"
 INK, MUTED, GRID = "#222B31", "#5A6570", "#DFE4E8"
 MODELS = [("27B", "qwen3.6-27b", BLUE), ("122B-A10B", "qwen3.5-122b-a10b", RED)]
-COMPLETE = {"submitted", "final_reply"}
+COMPLETE = {"submitted", "final_reply", "final_reply_without_submit"}
 SNAPSHOT = {"generated_utc": datetime.now(timezone.utc).isoformat(), "files": {}, "fresh": {}}
 
 plt.rcParams.update({
@@ -96,7 +96,7 @@ def collect_fresh():
             group = archived if "." in run_dir.name else groups
             group[summary["condition"]].append(record)
         SNAPSHOT["fresh"][folder.name] = {
-            "model": manifest.get("model"), "provider": manifest.get("provider"),
+            "model": manifest["config"].get("model"), "provider": manifest["config"].get("provider"),
             "conditions": {c: tally(rows) for c, rows in groups.items()},
             "archived": {c: tally(rows) for c, rows in archived.items()},
             "pending_folders": pending,
@@ -382,6 +382,29 @@ def replication():
     folders = ["replication_v1", "replication_v1_q122b"]
     if not all(f in SNAPSHOT["fresh"] for f in folders):
         return
+    checked = 0
+    settings = ["model", "provider", "effort", "temperature", "max_turns", "max_tokens",
+                "system_prompt", "user_message", "tools"]
+    for folder, suffix in zip(folders, ["", "_q122b"]):
+        config = read(RESULTS / folder / "_manifest.json")["config"]
+        for condition in ["MP", "MHP", "MHP_costly"]:
+            source = "pressure_costly_v1" if condition == "MHP_costly" else "pressure_v1"
+            old = read(RESULTS / (source + suffix) / "_manifest.json")["config"]
+            assert all(config[key] == old[key] for key in settings), (folder, condition)
+            assert config["conditions"][condition] == old["conditions"][condition]
+            assert config["initial_files"][condition] == old["initial_files"][condition]
+            assert config["user_suffixes"][condition] == old["user_suffixes"][condition]
+            for path in sorted((RESULTS / folder).glob(f"{condition}__*/transcript.json")):
+                if "." in path.parent.name:
+                    continue
+                transcript = read(path)
+                assert transcript["messages"][0]["content"] == config["system_prompt"], str(path)
+                assert transcript["messages"][1]["content"] == config["user_message"] + config["user_suffixes"][condition], str(path)
+                briefs = [call["result"] for call in transcript["tool_log"]
+                          if call["tool"] == "read_file" and call.get("args", {}).get("path") == "/workspace/brief.txt"]
+                assert briefs and all(brief == config["conditions"][condition] for brief in briefs), str(path)
+                checked += 1
+    SNAPSHOT["replication_prompt_checks"] = checked
     fig, axes = plt.subplots(1, 2, figsize=(12, 6.7))
     all_complete = True
     for ax, (model, folder, color) in zip(axes, [("27B", folders[0], BLUE), ("122B-A10B", folders[1], RED)]):
