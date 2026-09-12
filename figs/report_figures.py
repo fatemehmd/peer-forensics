@@ -1,5 +1,6 @@
 """Recount saved artifacts and build report figures. No experiment imports or API calls."""
 
+import argparse
 import hashlib
 import json
 import math
@@ -74,8 +75,10 @@ def tally(records):
     }
 
 
-def collect_fresh():
+def collect_fresh(only=None):
     for folder in sorted(RESULTS.iterdir()):
+        if only is not None and folder.name not in only:
+            continue
         if not folder.is_dir() or not (folder / "_manifest.json").exists():
             continue
         manifest = read(folder / "_manifest.json")
@@ -493,7 +496,64 @@ def attribution_replication():
          top=0.79, left=0.23, bottom=0.24)
 
 
+def clarified():
+    folders = ["clarified_v1", "clarified_v1_q122b"]
+    checked = 0
+    clarification = "Each request through this route contacts the external website"
+    for folder in folders:
+        config = read(RESULTS / folder / "_manifest.json")["config"]
+        assert config["conditions"]["MC"] == config["conditions"]["MPC"]
+        assert clarification in config["conditions"]["MC"]
+        assert config["initial_files"]["MC"] == config["initial_files"]["MPC"]
+        assert config["user_suffixes"]["MC"] == ""
+        assert config["user_suffixes"]["MPC"]
+        for condition in ["MC", "MPC"]:
+            expected_user = config["user_message"] + config["user_suffixes"][condition]
+            for run_id in range(50):
+                path = RESULTS / folder / f"{condition}__{run_id:02d}" / "transcript.json"
+                transcript = read(path)
+                assert transcript["end_reason"] == "submitted" and not transcript["error"], str(path)
+                assert transcript["messages"][0]["content"] == config["system_prompt"], str(path)
+                assert transcript["messages"][1]["content"] == expected_user, str(path)
+                briefs = [call["result"] for call in transcript["tool_log"]
+                          if call["tool"] == "read_file"
+                          and call.get("args", {}).get("path") == "/workspace/brief.txt"]
+                assert briefs and all(brief == config["conditions"][condition] for brief in briefs), str(path)
+                checked += 1
+            row = cell(folder, condition)
+            assert row["n"] == 50 and row["failed"] == 0, (folder, condition, row)
+    SNAPSHOT["clarified_prompt_checks"] = checked
+    SNAPSHOT["clarified_contrasts"] = {
+        folder: difference_interval(cell(folder, "MPC"), cell(folder, "MC"))
+        for folder in folders
+    }
+    fig, axes = plt.subplots(1, 2, figsize=(11.6, 5.6))
+    for ax, (model, folder, color) in zip(axes, [
+        ("Qwen3.6-27B", folders[0], BLUE), ("Qwen3.5-122B-A10B", folders[1], RED)
+    ]):
+        setup(ax, ["No added pressure", "Completion pressure"], model)
+        for y, condition in enumerate(["MC", "MPC"]):
+            dot(ax, y, cell(folder, condition), color)
+    save(fig, "report_14_clarified_pressure", "Pressure increases violations despite explicit clarification",
+         "Every run was told the route contacts external websites and does not return cached copies.",
+         ["50 fresh runs per cell. Same rule, route, source notes, and tools; only the completion paragraph changes.",
+          "Lines: 95% Wilson intervals. All 200 runs submitted; counts independently checked against HTTP tool calls.",
+          "Zero observed violations is not a guarantee of compliance. No billing warning in this experiment."],
+         top=0.73, left=0.20, bottom=0.26)
+
+
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--clarified-only", action="store_true",
+                        help="Recount the final pressure comparison and generate only its figure and snapshot.")
+    args = parser.parse_args()
+    if args.clarified_only:
+        collect_fresh({"clarified_v1", "clarified_v1_q122b"})
+        clarified()
+        (OUT / "report_clarified_snapshot.json").write_text(json.dumps(SNAPSHOT, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps({"fresh": SNAPSHOT["fresh"], "contrasts": SNAPSHOT["clarified_contrasts"],
+                          "checked": SNAPSHOT["clarified_prompt_checks"]}, indent=2))
+        return
     collect_fresh()
     for make in [attribution, resampling, restrictions, pressure, price, excitement, humans,
                  billing_mentions, judgment, commitment, sentence, replication, attribution_replication]:
