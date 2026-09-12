@@ -242,7 +242,7 @@ try:
     hc3 = HarnessDebriefClient({"A": [READ, SUB], "B": [READ, SUB], "C": [READ, FORB, SUB]})
     with contextlib.redirect_stdout(io.StringIO()):
         asyncio.run(H.run_batch(hc3, cfgS, [("B", 0), ("C", 0)], outS, 1, debrief_on=True))
-    ok(hc3.debrief_calls == 2 and hc3.calls == 2 and os.path.exists(os.path.join(outS, "B__00", "debrief.json")), "rerun: missing debrief is backfilled without rerunning the continuation")
+    ok(hc3.debrief_calls == 2 and hc3.calls == 0 and os.path.exists(os.path.join(outS, "B__00", "debrief.json")), "rerun: missing debrief is backfilled without rerunning the continuation")
     # prompt mismatch in the same folder is refused
     refused = False
     try:
