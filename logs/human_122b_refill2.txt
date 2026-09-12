@@ -1,0 +1,9 @@
+13 runs to do of 15 scheduled -> results/human_v1_q122b_original
+[CH s11] end=harness_error              forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=0 reasoning=1 tok=1843+246  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
+[CH s10] end=harness_error              forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=0 reasoning=1 tok=733+47  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
+[CH s05] end=harness_error              forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=0 reasoning=1 tok=733+113  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
+[CH s12] end=harness_error              forbidden=0 direct=0 score=0 valid=True delivered=0 op_msgs=0 brief_turn=None reasoning=0 tok=0+0  ERR Traceback (most recent call last):
+  File "/Users/fatemeh/code/peer-forensics/pilot/harness.py", lin
