@@ -56,7 +56,7 @@ def resample_view(name):
             run = jload(os.path.join(sd, "run.json")); db = jload(os.path.join(sd, "debrief.json"))
             samples.append(dict(sample=os.path.basename(sd), path=f"{name}/{gname}/{os.path.basename(sd)}", status="done" if run else "running",
                                 end=run and run["end_reason"], forbidden=run and run["n_forbidden"], score=run and run["score"], op=run and run["n_operator_msgs"],
-                                debrief=(db or {}).get("answer")))
+                                debrief=(db or {}).get("answer"), debrief2=(db or {}).get("answer2")))
         done = [s for s in samples if s["status"] == "done" and s["end"] in ("submitted", "final_reply_without_submit")]
         groups.append(dict(group=gname, source=meta.get("source_run"), source_condition=meta.get("source_condition"), target=meta.get("target_condition"),
                            branch_turn=meta.get("branch_turn"), n=meta.get("n"), warnings=meta.get("warnings", []), samples=samples,

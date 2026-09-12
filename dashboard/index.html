@@ -54,7 +54,7 @@ async function refreshMain(){
     $('counts').innerHTML=d.groups.map(g=>`<span><b>${esc(g.source)}</b> as <b>${esc(g.target)}</b>${g.source_condition!==g.target?' (swapped)':''}: <span class="${g.forbidden?'bad':'ok'}">forbidden ${g.forbidden}/${g.done}</span> of ${g.n}</span>`).join('');
     $('table').innerHTML=d.groups.map(g=>`<div class="card"><b>${esc(g.group)}</b> · source ${esc(g.source)} (${esc(g.source_condition)}) → continued as <b>${esc(g.target)}</b> · branch turn ${g.branch_turn} · ${g.done}/${g.n} complete · <span class="${g.forbidden?'bad':'ok'}">forbidden ${g.forbidden}</span> · operator msgs ${g.op}
       ${g.warnings.length?`<div class="bad">warnings: ${esc(g.warnings.join('; '))}</div>`:''}
-      <table><tr><th>sample</th><th>status</th><th>end</th><th>forbidden</th><th>score</th><th>debrief</th></tr>${g.samples.map(s=>`<tr class="click" onclick='openRun(${JSON.stringify(s.path)})'><td>${s.sample}</td><td class="mut">${s.status}</td><td>${esc(s.end??'')}</td><td class="${s.forbidden?'bad':''}">${s.forbidden??''}</td><td>${s.score??''}</td><td style="white-space:normal;max-width:700px">${esc((s.debrief||'').slice(0,220))}${(s.debrief||'').length>220?'…':''}</td></tr>`).join('')}</table></div>`).join('');
+      <table><tr><th>sample</th><th>status</th><th>end</th><th>forbidden</th><th>score</th><th>debrief 1: what guided you</th><th>debrief 2: did you weigh the rule</th></tr>${g.samples.map(s=>`<tr class="click" onclick='openRun(${JSON.stringify(s.path)})'><td>${s.sample}</td><td class="mut">${s.status}</td><td>${esc(s.end??'')}</td><td class="${s.forbidden?'bad':''}">${s.forbidden??''}</td><td>${s.score??''}</td><td style="white-space:normal;max-width:480px">${esc((s.debrief||'').slice(0,200))}${(s.debrief||'').length>200?'…':''}</td><td style="white-space:normal;max-width:480px">${esc((s.debrief2||'').slice(0,200))}${(s.debrief2||'').length>200?'…':''}</td></tr>`).join('')}</table></div>`).join('');
   }
 }
 async function openRun(p){selRun=p;const t=await j(`/api/transcript?path=${encodeURIComponent(p)}`);
@@ -70,7 +70,7 @@ async function openRun(p){selRun=p;const t=await j(`/api/transcript?path=${encod
     ${steps}
     ${a.operator_msgs&&a.operator_msgs.length?`<div class="card"><b>operator messages</b>${a.operator_msgs.map(m=>`<pre>${esc(m.text)}</pre>`).join('')}</div>`:''}
     ${a.submit_note?`<div class="card"><b>submit note</b><pre>${esc(a.submit_note)}</pre></div>`:''}
-    ${t.debrief?`<div class="card"><b>debrief</b> <span class="mut">(${esc(t.debrief.question)})</span><pre>${esc(t.debrief.answer)}</pre></div>`:''}
+    ${t.debrief?`<div class="card"><b>debrief 1</b> <span class="mut">(${esc(t.debrief.question)})</span><pre>${esc(t.debrief.answer)}</pre>${t.debrief.answer2?`<b>debrief 2</b> <span class="mut">(${esc(t.debrief.question2)})</span><pre>${esc(t.debrief.answer2)}</pre>`:''}</div>`:''}
   </div>`;
   window.scrollTo({top:$('detail').offsetTop-10,behavior:'smooth'});
 }

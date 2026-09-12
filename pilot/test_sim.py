@@ -219,18 +219,24 @@ if t:
     class DebriefClient(FakeClient):
         def __init__(self, debrief_behaviour="answer"): self.db = debrief_behaviour; self.debrief_calls = 0
         async def create(self, model, messages, **kw):
-            if messages[-1]["role"] == "user" and messages[-1]["content"] == R.DEBRIEF:
+            if messages[-1]["role"] == "user" and messages[-1]["content"] in (R.DEBRIEF, R.DEBRIEF2):
                 self.debrief_calls += 1
                 if self.db == "cancel": raise asyncio.CancelledError()
                 if self.db == "raise": raise RuntimeError("debrief boom")
-                return NS(usage=NS(prompt_tokens=1, completion_tokens=1), model_extra={}, choices=[NS(finish_reason="stop", message=NS(model_extra={}, reasoning=None, content="I followed the brief.", tool_calls=None))])
+                ans = "I followed the brief." if messages[-1]["content"] == R.DEBRIEF else "Yes, I considered it."
+                return NS(usage=NS(prompt_tokens=1, completion_tokens=1), model_extra={}, choices=[NS(finish_reason="stop", message=NS(model_extra={}, reasoning=None, content=ans, tool_calls=None))])
             return NS(usage=NS(prompt_tokens=1, completion_tokens=1), model_extra={}, choices=[NS(finish_reason="tool_calls", message=fake_msg([("submit", {"note": "partial"})]))])
     tmpd = tempfile.mkdtemp()
     try:
         cfg = dict(model="fake", provider=None, effort="medium")
         r = asyncio.run(R.continue_run(DebriefClient(), cfg, m_swap, s_swap, bt, os.path.join(tmpd, "s0"), asyncio.Semaphore(1)))
         tr = json.load(open(os.path.join(tmpd, "s0", "transcript.json"))); db = json.load(open(os.path.join(tmpd, "s0", "debrief.json")))
-        ok(r["end_reason"] == "submitted" and r["debrief"] == "I followed the brief." and db["question"] == R.DEBRIEF and "debrief" not in tr and tr["messages"][-1]["role"] == "tool", "continuation from branch turn; debrief stored in its own file, not in the run transcript")
+        ok(r["end_reason"] == "submitted" and r["debrief"] == "I followed the brief." and r["debrief2"] == "Yes, I considered it." and db["question"] == R.DEBRIEF and db["question2"] == R.DEBRIEF2 and "debrief" not in tr and tr["messages"][-1]["role"] == "tool", "continuation from branch turn; two debrief answers stored in their own file, not in the run transcript")
+        # backfill: a debrief.json with only the first answer gets only the second question asked
+        json.dump(dict(question=R.DEBRIEF, answer="old answer"), open(os.path.join(tmpd, "s0", "debrief.json"), "w"))
+        c0 = DebriefClient(); _, s0b, _ = R.build_prefix(t, "B", bt)
+        r0 = asyncio.run(R.continue_run(c0, cfg, m_swap, s0b, bt, os.path.join(tmpd, "s0"), asyncio.Semaphore(1)))
+        ok(c0.debrief_calls == 1 and r0["debrief"] == "old answer" and r0["debrief2"] == "Yes, I considered it.", "backfill asks only the missing second question and keeps the saved first answer")
         # cancellation during debrief must not lose the completed continuation
         _, s2, _ = R.build_prefix(t, "B", bt)
         try: asyncio.run(R.continue_run(DebriefClient("cancel"), cfg, m_swap, s2, bt, os.path.join(tmpd, "s1"), asyncio.Semaphore(1)))
@@ -241,7 +247,7 @@ if t:
         c3 = DebriefClient()
         _, s3, _ = R.build_prefix(t, "B", bt)
         r3 = asyncio.run(R.continue_run(c3, cfg, m_swap, s3, bt, os.path.join(tmpd, "s1"), asyncio.Semaphore(1)))
-        ok(open(os.path.join(tmpd, "s1", "transcript.json")).read() == before and c3.debrief_calls == 1 and r3["debrief"] == "I followed the brief." and os.path.exists(os.path.join(tmpd, "s1", "debrief.json")), "retry: continuation untouched, only the debrief was requested and saved")
+        ok(open(os.path.join(tmpd, "s1", "transcript.json")).read() == before and c3.debrief_calls == 2 and r3["debrief"] == "I followed the brief." and os.path.exists(os.path.join(tmpd, "s1", "debrief.json")), "retry: continuation untouched, only the two debrief questions were requested and saved")
         # debrief API error: recorded in return, not persisted, so a later retry can fill it
         _, s4, _ = R.build_prefix(t, "B", bt)
         r4 = asyncio.run(R.continue_run(DebriefClient("raise"), cfg, m_swap, s4, bt, os.path.join(tmpd, "s2"), asyncio.Semaphore(1)))
