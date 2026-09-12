@@ -203,7 +203,7 @@ Every judgment was hand-labelled (`pilot/results/judgment_v1/labels_and_summary.
 
 ---
 
-## sentence_v1  (2026-09-11, launched 20:23 PT; append outcome when run)
+## sentence_v1  (2026-09-11, launched 20:32 PT; append outcome when run)
 **Question.** Is "Let me try ..." the point where the decision is made, or is it written after the decision? Sentence-level resampling on the 122B, whose deliberation is in visible text and can be prefilled (one-call probe at 20:19: Alibaba continues a partial assistant message and proceeds to the fetch; Novita does not, it restarts its own reasoning).
 **Sources.** The 9 route-using MP runs in `pressure_v1_q122b` whose pivot sentence is not the first sentence (MP_00 excluded for that reason; MP_02/03/10/13/14 excluded as honest).
 **Arms (paired per source, 10 continuations each).** Prefix = saved messages before the decision turn (as in judgment_v1), then a prefilled assistant message: *before* = decision-turn text up to the sentence preceding the pivot; *through* = the same plus the pivot sentence. The model continues the message; the task then runs with the original tools. Route rate from tool calls.
