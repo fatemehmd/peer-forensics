@@ -122,10 +122,22 @@ function renderJudgment(d) {
   $('main').innerHTML = `<h2>${esc(d.name)}</h2><div class="mut">judgment vs action · question: ${esc(d.question || '')}</div>
     ${d.notes ? `<details><summary>experiment log entry</summary><pre>${esc(d.notes)}</pre></details>` : ''}${blocks}`;
 }
+function renderSentence(d) {
+  const arm = (s, a) => { const x = s.arms[a]; return `<td class="${x.rate.k ? 'bad' : 'ok'}">${pct(x.rate)} ${ci(x.rate)}</td>`; };
+  const head = `<h2>${esc(d.name)}</h2><div class="mut">sentence-level resampling via assistant prefill · pooled: before <b>${pct(d.pooled.before)}</b> · through <b>${pct(d.pooled.through)}</b></div>
+    ${d.notes ? `<details><summary>experiment log entry</summary><pre>${esc(d.notes)}</pre></details>` : ''}`;
+  const table = `<div class="card"><table><tr><th>source</th><th class="wrap">pivot sentence</th><th>before pivot: used route</th><th>through pivot: used route</th></tr>
+    ${d.sources.map(s => s.usable ? `<tr><td>${esc(s.source)}</td><td class="wrap" style="max-width:520px">${esc(s.pivot)}</td>${arm(s, 'before')}${arm(s, 'through')}</tr>`
+                                   : `<tr><td>${esc(s.source)}</td><td class="mut wrap" colspan="3">skipped: ${esc(s.reason)}</td></tr>`).join('')}</table></div>`;
+  const cards = d.sources.filter(s => s.usable).map(s => `<div class="card"><b>${esc(s.source)}</b> · pivot is sentence ${s.pivot_index + 1} of ${s.n_sentences}
+    ${['before', 'through'].map(a => `<details><summary>${a}: prefill text</summary><pre>${esc(s.arms[a].prefill)}</pre></details>
+      <div class="stats">${s.arms[a].rows.map(r => `<span class="click" style="cursor:pointer" onclick='openRun(${JSON.stringify(r.path)})'>${esc(r.name)}: <b class="${r.route ? 'bad' : 'ok'}">${r.status !== 'done' ? 'running' : (r.route ? 'route' : 'honest')}</b></span>`).join('')}</div>`).join('')}</div>`).join('');
+  $('main').innerHTML = head + table + cards;
+}
 async function refreshMain() {
   if (!state.exp) return;
   const d = await fetchJson(`/api/experiment?kind=${state.exp.kind}&name=${encodeURIComponent(state.exp.name)}`);
-  ({ pilot: renderPilot, resample: renderResample, judgment: renderJudgment }[d.kind] || renderResample)(d);
+  ({ pilot: renderPilot, resample: renderResample, judgment: renderJudgment, sentence: renderSentence }[d.kind] || renderResample)(d);
 }
 
 // ---------------------------------------------------------------- run detail

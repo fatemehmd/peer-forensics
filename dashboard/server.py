@@ -50,6 +50,7 @@ def log_entry(name):
 # ---------------------------------------------------------------- experiment discovery
 def experiment_kind(d):
     if os.path.exists(os.path.join(d, "_manifest.json")): return "pilot"
+    if glob.glob(os.path.join(d, "*", "before-*")): return "sentence"
     if glob.glob(os.path.join(d, "*", "meta.json")): return "resample"
     if glob.glob(os.path.join(d, "*", "*", "judgment-*")): return "judgment"
     return "other"
@@ -175,6 +176,27 @@ def judgment_view(name):
         models.append(dict(model=model, sources=sources))
     return dict(kind="judgment", name=name, models=models, question=(load_json(glob.glob(os.path.join(d, "*", "*", "meta.json"))[0], {}) if glob.glob(os.path.join(d, "*", "*", "meta.json")) else {}).get("judgment_question"), notes=log_entry(name))
 
+# ---------------------------------------------------------------- sentence-resampling view
+def sentence_view(name):
+    d = safe_path(RESULTS, name); sources = []
+    for sdir in sorted(x for x in glob.glob(os.path.join(d, "*")) if os.path.isdir(x)):
+        meta = load_json(os.path.join(sdir, "meta.json"), {}); src = os.path.basename(sdir)
+        if not meta.get("usable"): sources.append(dict(source=src, usable=False, reason=meta.get("reason"))); continue
+        arms = {}
+        for arm in ("before", "through"):
+            rows = []
+            for cd in sorted(glob.glob(os.path.join(sdir, f"{arm}-*"))):
+                t = load_json(os.path.join(cd, "transcript.json"))
+                rows.append(dict(name=os.path.basename(cd), path=f"{name}/{src}/{os.path.basename(cd)}", status="done" if t else "running",
+                                 end=t and t.get("end_reason"), route=bool(t and t["actions"]["n_forbidden_attempts"])))
+            complete = [r for r in rows if r["end"] in COMPLETE_ENDINGS]
+            arms[arm] = dict(rows=rows, rate=rate(sum(r["route"] for r in complete), len(complete)), prefill=(meta.get("arms") or {}).get(arm, ""))
+        sources.append(dict(source=src, usable=True, pivot=meta.get("pivot"), pivot_index=meta.get("pivot_index"), n_sentences=len(meta.get("sentences") or []), arms=arms))
+    pooled = {}
+    for arm in ("before", "through"):
+        k = sum(s["arms"][arm]["rate"]["k"] for s in sources if s.get("usable")); n = sum(s["arms"][arm]["rate"]["n"] for s in sources if s.get("usable")); pooled[arm] = rate(k, n)
+    return dict(kind="sentence", name=name, sources=sources, pooled=pooled, notes=log_entry(name))
+
 # ---------------------------------------------------------------- transcript + logs
 def prefix_steps(messages):
     """Turn a frozen message prefix (from a resample group's meta.json) into step records so the
@@ -224,7 +246,7 @@ INDEX_HTML = read_text(os.path.join(os.path.dirname(__file__), "index.html"))
 
 ROUTES = {
     "/api/experiments": lambda q: dict(experiments=list_experiments(), logs=sorted(os.path.basename(f) for f in glob.glob(os.path.join(LOGS, "*.txt")))),
-    "/api/experiment": lambda q: {"pilot": pilot_view, "resample": resample_view, "judgment": judgment_view}.get(q.get("kind"), resample_view)(q["name"]),
+    "/api/experiment": lambda q: {"pilot": pilot_view, "resample": resample_view, "judgment": judgment_view, "sentence": sentence_view}.get(q.get("kind"), resample_view)(q["name"]),
     "/api/transcript": lambda q: transcript_view(q["path"]),
     "/api/log": lambda q: log_tail(q["name"], int(q.get("n", 300))),
 }
