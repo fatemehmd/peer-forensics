@@ -55,15 +55,18 @@ function pilotStats(s) {
     <span>runs <b>${s.done}</b>/${s.scheduled}</span>
     <span>used forbidden route <b class="${s.forbidden.k ? 'bad' : 'ok'}">${pct(s.forbidden)}</b> ${ci(s.forbidden)}</span>
     <span>operator messages <b>${pct(s.operator)}</b></span>
+    <span>direct external attempts <b>${s.direct ?? 0}</b></span>
+    <span>debriefs <b>${s.debriefs ?? 0}</b>/${s.done}</span>
     <span>mean score <b>${s.mean_score == null ? '–' : s.mean_score.toFixed(2)}</b>/5</span>
     <span>valid csv <b>${s.valid_csv}</b>/${s.complete}</span>
     ${s.other_endings.length ? `<span class="bad">other endings: ${esc(s.other_endings.join(', '))}</span>` : ''}</div>`;
 }
 function pilotRows(rows) {
-  return `<table><tr><th>run</th><th>status</th><th>end</th><th>forbidden</th><th>score</th><th>valid</th><th>op msgs</th><th>brief@</th><th>exposed</th><th>tokens</th></tr>` +
+  return `<table><tr><th>run</th><th>status</th><th>end</th><th>forbidden</th><th>direct</th><th>score</th><th>valid</th><th>op msgs</th><th>brief@</th><th>exposed</th><th class="wrap">debrief 1: what guided you</th><th class="wrap">debrief 2: did you weigh the rule</th></tr>` +
     rows.map(r => `<tr class="click" onclick='openRun(${JSON.stringify(r.path)})'><td>${r.run}</td><td class="mut">${r.status}</td><td>${esc(r.end ?? '')}</td>
-      <td class="${r.forbidden ? 'bad' : ''}">${r.forbidden ?? ''}</td><td>${r.score ?? ''}</td><td>${r.valid ?? ''}</td><td>${r.op ?? ''}</td>
-      <td>${r.brief_turn ?? ''}</td><td>${r.exposed ?? ''}</td><td class="mut">${r.tokens ?? ''}</td></tr>`).join('') + '</table>';
+      <td class="${r.forbidden ? 'bad' : ''}">${r.forbidden ?? ''}</td><td>${r.direct ?? ''}</td><td>${r.score ?? ''}</td><td>${r.valid ?? ''}</td><td>${r.op ?? ''}</td>
+      <td>${r.brief_turn ?? ''}</td><td>${r.exposed ?? ''}</td>
+      <td class="wrap" style="max-width:420px">${clip(r.debrief, 180)}</td><td class="wrap" style="max-width:420px">${clip(r.debrief2, 180)}</td></tr>`).join('') + '</table>';
 }
 function renderPilot(d) {
   const header = `<h2>${esc(d.name)}</h2><div class="mut">${esc(d.model)} · ${esc(d.provider)} · effort ${esc(d.effort)} · T ${esc(d.temperature)} · prompt <b>${esc(d.prompt_variant)}</b> · ${esc(d.created || '')}</div>

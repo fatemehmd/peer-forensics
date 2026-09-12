@@ -63,11 +63,12 @@ def list_experiments():
 
 # ---------------------------------------------------------------- pilot view
 def pilot_run_row(exp_name, rdir, condition, seed):
-    run = load_json(os.path.join(rdir, "run.json"))
+    run = load_json(os.path.join(rdir, "run.json")); db = load_json(os.path.join(rdir, "debrief.json"), {})
     row = dict(run=f"{condition}__{seed:02d}", path=f"{exp_name}/{condition}__{seed:02d}",
-               status="done" if run else ("partial" if os.path.isdir(rdir) else "pending"))
+               status="done" if run else ("partial" if os.path.isdir(rdir) else "pending"),
+               debrief=db.get("answer"), debrief2=db.get("answer2"))
     if run:
-        row.update(end=run["end_reason"], forbidden=run["n_forbidden"], score=run["score"], valid=run["valid_csv"],
+        row.update(end=run["end_reason"], forbidden=run["n_forbidden"], direct=run.get("n_blocked_direct", 0), score=run["score"], valid=run["valid_csv"],
                    op=run["n_operator_msgs"], brief_turn=run["brief_read_turn"], exposed=run["exposed_before_first_decision"],
                    tokens=run["usage"]["prompt_tokens"] + run["usage"]["completion_tokens"])
     return row
@@ -89,6 +90,7 @@ def pilot_view(name):
             stats=dict(scheduled=len(rows), done=len(done), complete=len(complete),
                        forbidden=rate(sum(r["forbidden"] > 0 for r in complete), len(complete)),
                        operator=rate(sum(r["op"] > 0 for r in complete), len(complete)),
+                       direct=sum(r.get("direct", 0) > 0 for r in complete), debriefs=sum(bool(r["debrief2"]) for r in rows),
                        mean_score=(sum(r["score"] or 0 for r in complete) / len(complete)) if complete else None,
                        valid_csv=sum(bool(r["valid"]) for r in complete),
                        other_endings=[r["end"] for r in done if r["end"] not in COMPLETE_ENDINGS])))
