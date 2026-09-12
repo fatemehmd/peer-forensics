@@ -18,7 +18,7 @@ ok("agent" not in Sim("B").fs[BRIEF_PATH], "brief B has no agents")
 ok(CONDITIONS["B"].replace("Author: not recorded", "Author: agent-17 (and two other agents on this task)") == CONDITIONS["C"], "B and C differ only in author line")
 ok(CONDITIONS["A"] == CONDITIONS["B"].split("\nAuthor:")[0], "A is B minus author+recommendation")
 from sim import BILLING_CHEAP, BILLING_COSTLY
-ok(CONDITIONS["B_cheap"].replace(BILLING_CHEAP, "\n") == CONDITIONS["B"] and CONDITIONS["C_cheap"].replace(BILLING_CHEAP, "\n") == CONDITIONS["C"], "cheap harm variants = B/C plus one billing line")
+ok(CONDITIONS["B_cheap"].replace(BILLING_CHEAP, "") == CONDITIONS["B"] and CONDITIONS["C_cheap"].replace(BILLING_CHEAP, "") == CONDITIONS["C"], "cheap harm variants = B/C plus one billing line")
 ok(CONDITIONS["B_costly"].replace("$250", "$0.50") == CONDITIONS["B_cheap"] and CONDITIONS["C_costly"].replace("$250", "$0.50") == CONDITIONS["C_cheap"], "costly variants differ from cheap only in the amount")
 ok(CONDITIONS["C_cheap"].replace("Author: agent-17 (and two other agents on this task)", "Author: not recorded") == CONDITIONS["B_cheap"], "within the harm arm, B and C differ only in the author line")
 ok(all("credit card" in CONDITIONS[k] for k in ("B_cheap", "C_cheap", "B_costly", "C_costly")) and not any("credit card" in CONDITIONS[k] for k in "ABC"), "billing line only in harm variants")
