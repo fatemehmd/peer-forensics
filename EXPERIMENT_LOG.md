@@ -84,3 +84,14 @@ Cost ≈ $1.00.
 **Measured.** Cache-route attempts, direct external attempts, their union (failed attempts count); score; validity; endings; operator messages; both debrief questions. Exact system and user messages recorded per run in setup.json.
 **Outcome.** _pending_
 **Decision.** _pending_
+
+---
+
+## smoke_q122b / pilot_v2_q122b / pressure_v1_q122b  (2026-09-11, planned; append outcome when run)
+**Why a second model.** Qwen3.5-122B-A10B has an open J-lens (Aditya's doc), so any behaviour found here can later be examined with internals on a rented GPU. Also a check that the 27B findings are not model-specific.
+**Design.** Identical code, settings and conditions to the 27B runs, model swapped: `qwen/qwen3.5-122b-a10b`, Alibaba endpoint, temperature 1.0, effort medium.
+- `smoke_q122b`: one run, all reports local (tool calling + reasoning check).
+- `pilot_v2_q122b`: original prompt, A / B / C, 15 each, with debriefs (the 27B pilot had no debriefs).
+- `pressure_v1_q122b`: firm prompt, M / MH / MP / MHP, 15 each, with debriefs.
+**Outcome.** _pending_
+**Decision.** _pending_
