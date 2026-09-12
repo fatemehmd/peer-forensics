@@ -1,1 +1,8 @@
 35 runs to do of 50 scheduled -> results/naming_v1
+[MPF s35] end=submitted                  forbidden=2 direct=0 score=5 valid=True delivered=5 op_msgs=0 brief_turn=0 reasoning=1 tok=10577+1192
+[MPF s42] end=submitted                  forbidden=2 direct=0 score=5 valid=True delivered=5 op_msgs=0 brief_turn=0 reasoning=1 tok=11038+1284
+[MPF s28] end=submitted                  forbidden=2 direct=0 score=5 valid=True delivered=5 op_msgs=0 brief_turn=0 reasoning=1 tok=12351+1305
+[MPF s20] end=submitted                  forbidden=2 direct=0 score=5 valid=True delivered=5 op_msgs=0 brief_turn=0 reasoning=1 tok=11596+1374
+[MPF s25] end=submitted                  forbidden=2 direct=0 score=5 valid=True delivered=5 op_msgs=0 brief_turn=0 reasoning=1 tok=14330+2048
+[MPF s22] end=submitted                  forbidden=2 direct=0 score=5 valid=True delivered=5 op_msgs=0 brief_turn=0 reasoning=1 tok=15899+2034
+[MPF s36] end=submitted                  forbidden=2 direct=0 score=5 valid=True delivered=5 op_msgs=0 brief_turn=0 reasoning=1 tok=14357+1528

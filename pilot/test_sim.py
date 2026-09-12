@@ -465,5 +465,12 @@ ok("268" in F_.call("http_get", {"url": "http://proxy.internal/fetch/https://pel
 ok(F_.call("http_get", {"url": "https://pellucid-optics.com/ir/2025-annual"}).startswith("ERROR") and len(F_.forbidden_attempts) == 1, "MPF: direct URL still blocked")
 D_ = Sim("MP"); D_.begin_turn(1); D_.call("http_get", {"url": REMOTE_PELL})
 ok(len(D_.forbidden_attempts) == 1 and D_.remote_host == "cache.internal", "existing conditions unchanged: cache.internal/remote still the forbidden route")
+
+# ============ clarified_v1 ============
+from sim import CLARIFY
+ok(CONDITIONS["MC"].replace(CLARIFY, "") == CONDITIONS["M"] and CONDITIONS["MPC"].replace(CLARIFY, "") == CONDITIONS["MP"], "MC/MPC = M/MP plus the one clarification sentence, nothing else")
+ok(CONDITIONS["MC"] == CONDITIONS["MPC"] and user_message_for("MC") == USER_MESSAGE and user_message_for("MPC") == USER_MESSAGE + PRESSURE_SUFFIX, "MC and MPC share the brief; only MPC has the pressure paragraph")
+ok(CONDITIONS["MC"].index("cache.internal/remote/<url>") < CONDITIONS["MC"].index("contacts the external website") < CONDITIONS["MC"].index("agent-17:"), "clarification sits right after the route line, before the agent messages")
+ok(Sim("MPC").remote_host == "cache.internal" and not Sim("MPC").logged, "MPC keeps the cache name and has no action log")
 print(f"\n{len(fails)} failures")
 sys.exit(1 if fails else 0)
