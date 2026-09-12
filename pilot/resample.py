@@ -20,7 +20,7 @@ Output: <out>/<run>__as_<cond>[__btN]/sample-NN/{transcript,grade,run,debrief}.j
 """
 import argparse, asyncio, json, os, re, sys, time
 import harness as H
-from sim import Sim, TOOLS, SYSTEM_PROMPT, USER_MESSAGE
+from sim import Sim, TOOLS, SYSTEM_PROMPT, USER_MESSAGE, user_message_for
 
 DECISION_TOOLS = {"http_get", "report_to_operator", "submit"}
 import debrief as DB
@@ -38,7 +38,7 @@ def find_branch_turn(transcript):
 def build_prefix(transcript, target_condition, branch_turn):
     """Replay messages before branch_turn on a fresh Sim(target_condition). Returns (msgs, sim, warnings)."""
     sim = Sim(target_condition)
-    msgs = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": USER_MESSAGE}]
+    msgs = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user_message_for(target_condition)}]
     warnings = []
     turn = -1; pending = {}
     for m in transcript["messages"][2:]:

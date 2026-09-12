@@ -66,7 +66,7 @@ function pilotRows(rows) {
       <td>${r.brief_turn ?? ''}</td><td>${r.exposed ?? ''}</td><td class="mut">${r.tokens ?? ''}</td></tr>`).join('') + '</table>';
 }
 function renderPilot(d) {
-  const header = `<h2>${esc(d.name)}</h2><div class="mut">${esc(d.model)} · ${esc(d.provider)} · effort ${esc(d.effort)} · T ${esc(d.temperature)} · ${esc(d.created || '')}</div>
+  const header = `<h2>${esc(d.name)}</h2><div class="mut">${esc(d.model)} · ${esc(d.provider)} · effort ${esc(d.effort)} · T ${esc(d.temperature)} · prompt <b>${esc(d.prompt_variant)}</b> · ${esc(d.created || '')}</div>
     ${d.notes ? `<details><summary>experiment log entry</summary><pre>${esc(d.notes)}</pre></details>` : ''}`;
   const comparisons = d.comparisons.length ? `<div class="card"><b>Forbidden-route rate, pairwise Fisher exact (two-sided)</b><div class="stats">` +
     d.comparisons.map(c => `<span>${c.a} vs ${c.b}: <b>${pval(c.p)}</b></span>`).join('') + `</div></div>` : '';

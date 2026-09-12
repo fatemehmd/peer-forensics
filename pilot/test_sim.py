@@ -210,6 +210,34 @@ finally:
     shutil.rmtree(tmp)
 
 
+# ============ pressure_v1 conditions ============
+from sim import AGENT_CONVERSATION, PRESSURE_SUFFIX, USER_MESSAGE, user_message_for
+ok(CONDITIONS["M"].endswith(AGENT_CONVERSATION) and "Author:" not in CONDITIONS["M"] and "Suggested next step" not in CONDITIONS["M"], "M = source notes + archived conversation, no author/suggestion line")
+ok(CONDITIONS["MP"] == CONDITIONS["M"] and CONDITIONS["MHP"] == CONDITIONS["MH"], "pressure conditions have the same brief as their non-pressure twins")
+ok(CONDITIONS["MH"].replace(BILLING_CHEAP, "") == CONDITIONS["M"] and "$0.50" in CONDITIONS["MH"] and "not authorized" in CONDITIONS["MH"], "MH = M plus the cheap unauthorized billing line, placed before the conversation")
+ok(CONDITIONS["MH"].index("Billing note") < CONDITIONS["MH"].index("agent-17:"), "billing line sits between source notes and conversation")
+ok(all(str(v) not in CONDITIONS[k] for k in ("M", "MH", "MP", "MHP") for v in (412, 1930, 77, 268, 3105)), "no revenue values in the conversation")
+ok(user_message_for("M") == USER_MESSAGE and user_message_for("MH") == USER_MESSAGE and user_message_for("MP") == USER_MESSAGE + PRESSURE_SUFFIX and user_message_for("MHP") == USER_MESSAGE + PRESSURE_SUFFIX, "pressure paragraph appended to the user message only for MP and MHP")
+ok(H.PROMPTS["firm"].count("Do not attempt, test, or work around this") == 1 and H.STRONG_SENTENCE not in H.PROMPTS["firm"] and "You may submit incomplete work" in H.PROMPTS["firm"] and "Do not invent missing values" in H.PROMPTS["firm"], "firm prompt: new paragraph, no strong sentence, other instructions intact")
+ok(H.PROMPTS["firm"].replace(H.FIRM_PARAGRAPH, H.ORIGINAL_PARAGRAPH) == H.PROMPTS["original"], "firm prompt differs from original only in the network paragraph")
+# the exact user text reaches the API request
+class CaptureClient(FakeClient):
+    def __init__(self, scripts): super().__init__(scripts); self.seen_user = {}
+    async def create(self, model, messages, **kw):
+        self.seen_user.setdefault(messages[0]["content"][:20], set()).add(messages[1]["content"]); return await super().create(model, messages, **kw)
+tmp3 = tempfile.mkdtemp()
+try:
+    cfgP = H.build_config("fake/model", "fakeprov", "medium", ["M", "MP"], prompt="firm")
+    cc = CaptureClient({"A": [READ, SUB], "B": [READ, SUB], "C": [READ, SUB]})
+    with contextlib.redirect_stdout(io.StringIO()):
+        asyncio.run(H.run_batch(cc, cfgP, [("M", 0), ("MP", 0)], os.path.join(tmp3, "p"), 1))
+    users = set().union(*cc.seen_user.values())
+    ok(USER_MESSAGE in users and USER_MESSAGE + PRESSURE_SUFFIX in users, "harness sends the pressure paragraph in the actual API request for MP")
+    setupMP = json.load(open(os.path.join(tmp3, "p", "MP__00", "setup.json")))
+    ok(setupMP["messages"][1]["content"].endswith(PRESSURE_SUFFIX) and setupMP["messages"][0]["content"] == H.PROMPTS["firm"], "setup.json records the exact system and user messages per run")
+    ok(cfgP["user_suffixes"] == {"M": "", "MP": PRESSURE_SUFFIX}, "manifest config records per-condition user suffixes")
+finally: shutil.rmtree(tmp3)
+
 # ============ prompt variants + harness debrief flag ============
 ok(H.PROMPTS["strong"].startswith(H.PROMPTS["original"].split("Work with the available")[0]) and H.STRONG_SENTENCE in H.PROMPTS["strong"] and H.STRONG_SENTENCE not in H.PROMPTS["original"] and H.PROMPTS["strong"].replace(H.STRONG_SENTENCE + "\n", "") == H.PROMPTS["original"], "strong prompt = original + one inserted sentence, nothing else")
 class HarnessDebriefClient(FakeClient):
