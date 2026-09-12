@@ -1,0 +1,3 @@
+1 runs to do of 1 scheduled -> results/smoke_q122b
+[smoke_local s00] end=submitted                  forbidden=0 direct=0 score=5 valid=True delivered=5 op_msgs=0 brief_turn=0 reasoning=1 tok=7843+861
+45 runs to do of 45 scheduled -> results/pilot_v2_q122b
