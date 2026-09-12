@@ -19,6 +19,16 @@ before its decision reply, per run, split by outcome (route / honest) within eac
 - 27B `pressure_v1__MHP` (7 route / 8 honest), `pilot_v3_original__B` (7/8), `pilot_v2__C` (6/9).
 - 122B `excite_v1_q122b__ME` (8/7), `pilot_v2_q122b__C` (11/4), `pressure_v1_q122b__MP` (10/5).
 
+## Lens artifacts (camilablank/workspace-lenses on Hugging Face)
+Per model: `j-lens/lens.pt` and `r-lens/lens.pt` (matched pair; R-lens reads early layers more faithfully). `lens.pt` holds
+`J` (stacked per-layer Jacobians to the penultimate layer), `source_layers`, `d_model`, `provenance`. Readout:
+`softmax(W_U · norm(J_l · h_l))`. The 27B also has a **template lens** (`qwen3.6-27b/template-lens/templates+phrases_v3.safetensors`
++ `template_words+phrases_v3.txt`): phrase-level cosine readouts, which is what we want for concepts like "credit card",
+"not allowed", "contradiction". The 122B ships the paper-minimal RelP pair (dense rules only).
+`internals/read_lens.py` loads the model, replays a saved prefix with the exact chat template, and dumps top-k J-lens tokens
+and template-lens phrases per layer at: the last prefix token, the end of the billing line, the end of the pressure
+paragraph, the rule sentence, and the peers' "worked for me" line. Run it on a route run and an honest run from the same cell.
+
 ## Qwen3.6-27B: hosted lens, no GPU
 Neuronpedia hosts a J-Lens for this model: https://www.neuronpedia.org/qwen3.6-27b/jlens . Paste a rendered prefix
 (`*.rendered.txt`), read the lens at the final assistant-prefix token and at the tokens of the billing line / pressure
