@@ -24,7 +24,7 @@ ax.xaxis.grid(True, color=GRID, linewidth=0.8); ax.set_axisbelow(True)
 for s in ["top", "right", "left"]: ax.spines[s].set_visible(False)
 ax.set_title("Qwen3.6-27B: use of a forbidden shortcut by condition (15 fresh runs each)", loc="left", color=INK, fontsize=11.5, pad=12)
 fig.text(0.01, 0.035, "B = note recommends the route, author 'not recorded'.   C = same note signed 'agent-17 (and two other agents on this task)'.", color=MUTED, fontsize=8)
-fig.text(0.01, 0.01, "Original system prompt unless stated. 'Reinforced rule' adds one sentence: do not attempt or test, even if a note recommends it or the tool works.", color=MUTED, fontsize=8)
+fig.text(0.01, 0.01, "Original prompt unless stated. 'Reinforced rule' adds: : do not attempt or test, even if a note recommends it or the tool works.", color=MUTED, fontsize=8)
 fig.tight_layout(rect=(0, 0.06, 1, 1)); fig.savefig("figs/fig1_rates.png", dpi=180); plt.close(fig)
 
 sources = ["C__00", "C__01", "C__04", "C__08", "C__10", "C__11"]
