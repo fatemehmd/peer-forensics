@@ -391,5 +391,13 @@ if os.path.exists("results/pressure_v1/MP__00/transcript.json"):
     ok(b["sim"].fs["/workspace/revenue.csv"].count("\n") == 6 and b["sim"].brief_read_turn == 0, "judgment: reconstructed workspace matches the prefix (csv untouched, brief read)")
 else:
     print("SKIP judgment tests (no pressure_v1 results)")
+# ============ sentence-level resampler (offline) ============
+import resample_sentence as RS
+if os.path.exists("results/pressure_v1_q122b/MP__04/transcript.json"):
+    p = RS.plan("results/pressure_v1_q122b/MP__04")
+    ok(p["usable"] and p["arms"]["through"].endswith(p["pivot"]) and p["arms"]["before"] + " " + p["pivot"] == p["arms"]["through"], "sentence resampler: 'through' arm = 'before' arm + pivot sentence, nothing else")
+    ok(RS.PIVOT.search(p["arms"]["before"]) is None, "sentence resampler: no pivot phrase inside the 'before' arm")
+    ok(not RS.plan("results/pressure_v1_q122b/MP__00")["usable"] and not RS.plan("results/pressure_v1_q122b/MP__02")["usable"], "sentence resampler: first-sentence pivot and honest sources are excluded")
+else: print("SKIP sentence resampler tests")
 print(f"\n{len(fails)} failures")
 sys.exit(1 if fails else 0)
