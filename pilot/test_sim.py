@@ -210,24 +210,6 @@ finally:
     shutil.rmtree(tmp)
 
 
-# ============ debrief-only backfill tolerates code-hash drift but never generates runs ============
-tmp5 = tempfile.mkdtemp()
-try:
-    cfg5 = H.build_config("fake/model", "fakeprov", "medium", ["B"]); out5 = os.path.join(tmp5, "d")
-    with contextlib.redirect_stdout(io.StringIO()):
-        asyncio.run(H.run_batch(HarnessDebriefClient({"A": [READ, SUB], "B": [READ, SUB]}), cfg5, [("B", 0)], out5, 1))
-    drift = dict(cfg5, code_hashes=dict(cfg5["code_hashes"], sim_py="drifted"))
-    refused = False
-    try:
-        with contextlib.redirect_stdout(io.StringIO()): asyncio.run(H.run_batch(HarnessDebriefClient({}), drift, [("B", 0)], out5, 1))
-    except H.ConfigMismatch: refused = True
-    ok(refused, "normal mode still refuses code-hash drift")
-    hc5 = HarnessDebriefClient({"A": [READ, SUB], "B": [READ, SUB]})
-    with contextlib.redirect_stdout(io.StringIO()):
-        asyncio.run(H.run_batch(hc5, drift, [("B", 0), ("B", 1)], out5, 1, debrief_on=True, debrief_only=True))
-    man5 = json.load(open(os.path.join(out5, "_manifest.json")))
-    ok(hc5.calls == 0 and hc5.debrief_calls == 2 and os.path.exists(os.path.join(out5, "B__00", "debrief.json")) and not os.path.exists(os.path.join(out5, "B__01")) and man5.get("notes"), "debrief-only: tolerates drift (noted in manifest), interviews the existing run, generates nothing for the missing seed")
-finally: shutil.rmtree(tmp5)
 # ============ pressure_v1 conditions ============
 from sim import AGENT_CONVERSATION, PRESSURE_SUFFIX, USER_MESSAGE, user_message_for
 ok(CONDITIONS["M"].endswith(AGENT_CONVERSATION) and "Author:" not in CONDITIONS["M"] and "Suggested next step" not in CONDITIONS["M"], "M = source notes + archived conversation, no author/suggestion line")
@@ -421,5 +403,23 @@ if os.path.exists("results/pressure_v1_q122b/MP__04/transcript.json"):
     ok(RS.PIVOT.search(p["arms"]["before"]) is None, "sentence resampler: no pivot phrase inside the 'before' arm")
     ok(not RS.plan("results/pressure_v1_q122b/MP__00")["usable"] and not RS.plan("results/pressure_v1_q122b/MP__02")["usable"], "sentence resampler: first-sentence pivot and honest sources are excluded")
 else: print("SKIP sentence resampler tests")
+# ============ debrief-only backfill tolerates code-hash drift but never generates runs ============
+tmp5 = tempfile.mkdtemp()
+try:
+    cfg5 = H.build_config("fake/model", "fakeprov", "medium", ["B"]); out5 = os.path.join(tmp5, "d")
+    with contextlib.redirect_stdout(io.StringIO()):
+        asyncio.run(H.run_batch(HarnessDebriefClient({"A": [READ, SUB], "B": [READ, SUB]}), cfg5, [("B", 0)], out5, 1))
+    drift = dict(cfg5, code_hashes=dict(cfg5["code_hashes"], sim_py="drifted"))
+    refused = False
+    try:
+        with contextlib.redirect_stdout(io.StringIO()): asyncio.run(H.run_batch(HarnessDebriefClient({}), drift, [("B", 0)], out5, 1))
+    except H.ConfigMismatch: refused = True
+    ok(refused, "normal mode still refuses code-hash drift")
+    hc5 = HarnessDebriefClient({"A": [READ, SUB], "B": [READ, SUB]})
+    with contextlib.redirect_stdout(io.StringIO()):
+        asyncio.run(H.run_batch(hc5, drift, [("B", 0), ("B", 1)], out5, 1, debrief_on=True, debrief_only=True))
+    man5 = json.load(open(os.path.join(out5, "_manifest.json")))
+    ok(hc5.calls == 0 and hc5.debrief_calls == 2 and os.path.exists(os.path.join(out5, "B__00", "debrief.json")) and not os.path.exists(os.path.join(out5, "B__01")) and man5.get("notes"), "debrief-only: tolerates drift (noted in manifest), interviews the existing run, generates nothing for the missing seed")
+finally: shutil.rmtree(tmp5)
 print(f"\n{len(fails)} failures")
 sys.exit(1 if fails else 0)
