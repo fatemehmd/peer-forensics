@@ -456,6 +456,9 @@ def attribution_replication():
             assert config["initial_files"][condition] == old["initial_files"][condition]
         notes = [config["conditions"][c].splitlines() for c in ["B", "C", "CW"]]
         assert len({tuple(line for line in note if not line.startswith("Author:")) for note in notes}) == 1
+        for condition in ["C", "CW"]:
+            assert {k: v for k, v in config["initial_files"][condition].items() if k != "/workspace/brief.txt"} == {
+                k: v for k, v in config["initial_files"]["B"].items() if k != "/workspace/brief.txt"}
         for path in sorted((RESULTS / folder).glob("*__*/transcript.json")):
             if "." in path.parent.name:
                 continue
@@ -478,7 +481,7 @@ def attribution_replication():
     }
     fig, axes = plt.subplots(1, 2, figsize=(12, 6.7))
     for ax, (model, folder, color) in zip(axes, [("27B", folders[0], BLUE), ("122B-A10B", folders[1], RED)]):
-        setup(ax, ["Unsigned", "Agent + two agents", "Coworker + two coworkers"], model)
+        setup(ax, ["Unsigned", "Three agents", "Three coworkers"], model)
         for y, condition in enumerate(["B", "C", "CW"]):
             dot(ax, y, cell(folder, condition), color)
     status = "COMPLETE" if all_complete else "INTERIM - collection still in progress"
