@@ -210,6 +210,24 @@ finally:
     shutil.rmtree(tmp)
 
 
+# ============ debrief-only backfill tolerates code-hash drift but never generates runs ============
+tmp5 = tempfile.mkdtemp()
+try:
+    cfg5 = H.build_config("fake/model", "fakeprov", "medium", ["B"]); out5 = os.path.join(tmp5, "d")
+    with contextlib.redirect_stdout(io.StringIO()):
+        asyncio.run(H.run_batch(HarnessDebriefClient({"A": [READ, SUB], "B": [READ, SUB]}), cfg5, [("B", 0)], out5, 1))
+    drift = dict(cfg5, code_hashes=dict(cfg5["code_hashes"], sim_py="drifted"))
+    refused = False
+    try:
+        with contextlib.redirect_stdout(io.StringIO()): asyncio.run(H.run_batch(HarnessDebriefClient({}), drift, [("B", 0)], out5, 1))
+    except H.ConfigMismatch: refused = True
+    ok(refused, "normal mode still refuses code-hash drift")
+    hc5 = HarnessDebriefClient({"A": [READ, SUB], "B": [READ, SUB]})
+    with contextlib.redirect_stdout(io.StringIO()):
+        asyncio.run(H.run_batch(hc5, drift, [("B", 0), ("B", 1)], out5, 1, debrief_on=True, debrief_only=True))
+    man5 = json.load(open(os.path.join(out5, "_manifest.json")))
+    ok(hc5.calls == 0 and hc5.debrief_calls == 2 and os.path.exists(os.path.join(out5, "B__00", "debrief.json")) and not os.path.exists(os.path.join(out5, "B__01")) and man5.get("notes"), "debrief-only: tolerates drift (noted in manifest), interviews the existing run, generates nothing for the missing seed")
+finally: shutil.rmtree(tmp5)
 # ============ pressure_v1 conditions ============
 from sim import AGENT_CONVERSATION, PRESSURE_SUFFIX, USER_MESSAGE, user_message_for
 ok(CONDITIONS["M"].endswith(AGENT_CONVERSATION) and "Author:" not in CONDITIONS["M"] and "Suggested next step" not in CONDITIONS["M"], "M = source notes + archived conversation, no author/suggestion line")
@@ -273,24 +291,6 @@ ok(user_message_for("CH") == USER_MESSAGE and user_message_for("MEH") == USER_ME
 ok(CONDITIONS["CW"].replace("Dana Okafor (coworker), with two other coworkers on this task", "agent-17 (and two other agents on this task)") == CONDITIONS["C"], "CW = C with only the author line changed to coworkers")
 ok(CONDITIONS["CW"].replace("Dana Okafor (coworker), with two other coworkers on this task", "not recorded") == CONDITIONS["B"], "CW = B with only the author line changed")
 ok("lead" not in CONDITIONS["CW"] and "agent" not in CONDITIONS["CW"] and user_message_for("CW") == USER_MESSAGE, "CW: no rank word, no 'agent', no pressure paragraph")
-# ============ debrief-only backfill tolerates code-hash drift but never generates runs ============
-tmp5 = tempfile.mkdtemp()
-try:
-    cfg5 = H.build_config("fake/model", "fakeprov", "medium", ["B"]); out5 = os.path.join(tmp5, "d")
-    with contextlib.redirect_stdout(io.StringIO()):
-        asyncio.run(H.run_batch(HarnessDebriefClient({"A": [READ, SUB], "B": [READ, SUB]}), cfg5, [("B", 0)], out5, 1))
-    drift = dict(cfg5, code_hashes=dict(cfg5["code_hashes"], sim_py="drifted"))
-    refused = False
-    try:
-        with contextlib.redirect_stdout(io.StringIO()): asyncio.run(H.run_batch(HarnessDebriefClient({}), drift, [("B", 0)], out5, 1))
-    except H.ConfigMismatch: refused = True
-    ok(refused, "normal mode still refuses code-hash drift")
-    hc5 = HarnessDebriefClient({"A": [READ, SUB], "B": [READ, SUB]})
-    with contextlib.redirect_stdout(io.StringIO()):
-        asyncio.run(H.run_batch(hc5, drift, [("B", 0), ("B", 1)], out5, 1, debrief_on=True, debrief_only=True))
-    man5 = json.load(open(os.path.join(out5, "_manifest.json")))
-    ok(hc5.calls == 0 and hc5.debrief_calls == 2 and os.path.exists(os.path.join(out5, "B__00", "debrief.json")) and not os.path.exists(os.path.join(out5, "B__01")) and man5.get("notes"), "debrief-only: tolerates drift (noted in manifest), interviews the existing run, generates nothing for the missing seed")
-finally: shutil.rmtree(tmp5)
 # ============ prompt variants + harness debrief flag ============
 ok(H.PROMPTS["strong"].startswith(H.PROMPTS["original"].split("Work with the available")[0]) and H.STRONG_SENTENCE in H.PROMPTS["strong"] and H.STRONG_SENTENCE not in H.PROMPTS["original"] and H.PROMPTS["strong"].replace(H.STRONG_SENTENCE + "\n", "") == H.PROMPTS["original"], "strong prompt = original + one inserted sentence, nothing else")
 class HarnessDebriefClient(FakeClient):
