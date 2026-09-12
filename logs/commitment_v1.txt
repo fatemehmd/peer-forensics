@@ -1,0 +1,32 @@
+30 continuations -> results/commitment_v1
+[B_neutral_pause MP__00 #2] prelim=neutral tools_in_prelim=[] -> end=submitted route=False
+[B_neutral_pause MP__00 #1] prelim=neutral tools_in_prelim=[] -> end=submitted route=False
+[A_judgment_first MP__01 #1] prelim=rejects tools_in_prelim=[] -> end=submitted route=False
+[A_judgment_first MP__01 #2] prelim=rejects tools_in_prelim=[] -> end=submitted route=False
+[B_neutral_pause MP__00 #0] prelim=neutral tools_in_prelim=[] -> end=submitted route=True
+[A_judgment_first MP__00 #1] prelim=rejects tools_in_prelim=[] -> end=submitted route=True
+[A_judgment_first MP__00 #0] prelim=rejects tools_in_prelim=[] -> end=submitted route=False
+[B_neutral_pause MP__01 #2] prelim=neutral tools_in_prelim=[] -> end=submitted route=True
+[A_judgment_first MP__00 #2] prelim=rejects tools_in_prelim=[] -> end=submitted route=True
+[B_neutral_pause MP__01 #1] prelim=neutral tools_in_prelim=[] -> end=submitted route=True
+[A_judgment_first MP__02 #1] prelim=rejects tools_in_prelim=[] -> end=submitted route=False
+[A_judgment_first MP__02 #2] prelim=rejects tools_in_prelim=[] -> end=submitted route=False
+[A_judgment_first MP__01 #0] prelim=rejects tools_in_prelim=[] -> end=submitted route=True
+[A_judgment_first MP__02 #0] prelim=rejects tools_in_prelim=[] -> end=submitted route=False
+[B_neutral_pause MP__02 #1] prelim=neutral tools_in_prelim=[] -> end=submitted route=True
+[B_neutral_pause MP__01 #0] prelim=neutral tools_in_prelim=[] -> end=submitted route=False
+[B_neutral_pause MP__02 #2] prelim=neutral tools_in_prelim=[] -> end=submitted route=True
+[B_neutral_pause MP__03 #0] prelim=neutral tools_in_prelim=[] -> end=submitted route=True
+[B_neutral_pause MP__02 #0] prelim=neutral tools_in_prelim=[] -> end=submitted route=False
+[A_judgment_first MP__03 #1] prelim=rejects tools_in_prelim=[] -> end=submitted route=False
+[B_neutral_pause MP__03 #2] prelim=neutral tools_in_prelim=[] -> end=submitted route=True
+[B_neutral_pause MP__03 #1] prelim=neutral tools_in_prelim=[] -> end=submitted route=True
+[A_judgment_first MP__03 #0] prelim=rejects tools_in_prelim=[] -> end=submitted route=True
+[B_neutral_pause MP__04 #0] prelim=neutral tools_in_prelim=[] -> end=submitted route=True
+[A_judgment_first MP__03 #2] prelim=rejects tools_in_prelim=[] -> end=submitted route=True
+[B_neutral_pause MP__04 #2] prelim=neutral tools_in_prelim=[] -> end=submitted route=False
+[A_judgment_first MP__04 #1] prelim=rejects tools_in_prelim=[] -> end=submitted route=False
+[A_judgment_first MP__04 #2] prelim=rejects tools_in_prelim=['write_file'] -> end=submitted route=True
+[A_judgment_first MP__04 #0] prelim=rejects tools_in_prelim=[] -> end=submitted route=False
+[B_neutral_pause MP__04 #1] prelim=neutral tools_in_prelim=[] -> end=submitted route=True
+ALL DONE
