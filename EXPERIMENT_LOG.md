@@ -339,8 +339,8 @@ Fisher MPL2 vs MPL: 27B p = 0.00009; 122B p = 0.249.
 
 **Reading.** Renaming the route from a "cache" to a fetch proxy leaves the 27B unchanged and drops the 122B from ~70% to 20%. This matches the interviews: the 122B's violators had argued they were "accessing already-cached documents rather than making fresh external requests"; with the name gone, most of them stop, and 5 of 15 probe the direct URLs instead (which are blocked). The 27B never used the cache reading; its violators cite precedent and the completion requirement, and still do. Remaining 122B violators now give the 27B-style account ("the brief's clear indication that previous agents succeeded").
 **Caveat.** 15 per model; the 122B pressure-cell base rate has been stable across three batches tonight (35/50, 38/50, and 29/50 with a log), so the drop is unlikely to be batch drift, but this is one batch.
-**Decision.** The endpoint's name was a load-bearing rationalisation for the 122B and not for the 27B. For the write-up: an identified confound in the earlier 122B numbers, and a concrete example of "resolve the ambiguity and the behaviour changes" operating at the level of a single noun.
-**Extension (launched 22:29 PT).** Extended to 50 per model in the same folders (seeds 15–49 added; the first 15 kept unchanged). Outcome at 50: _pending_
+**Extension (launched 22:27 PT).** Extended to 50 per model in the same folders (seeds 15–49 added; the first 15 kept unchanged). Outcome at 50 (22:32): 27B MPF 47/50 (94%, CI 84–98) vs MP 45/50, p = 0.72, direct probes 2. 122B MPF 9/50 (18%, CI 10–31) vs MP 35/50, p < 0.0001, direct probes 9. The 15-run picture holds at 50: the name "cache" was load-bearing for the 122B (70% → 18%) and irrelevant to the 27B.
+**Decision.** For the write-up: an identified confound in the earlier 122B numbers, and "resolve the ambiguity and the behaviour changes" at the level of a single noun.
 
 ---
 
