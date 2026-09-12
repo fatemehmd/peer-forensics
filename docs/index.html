@@ -1,0 +1,193 @@
+<!doctype html><html><head><meta charset="utf-8"><title>peer-forensics experiments</title>
+<style>
+:root{--bg:#fafafa;--fg:#222;--mut:#666;--line:#ddd;--acc:#1f6feb;--bad:#c0392b;--ok:#2e7d32;--card:#fff;--frozen:#eef3ff}
+@media (prefers-color-scheme:dark){:root{--bg:#141414;--fg:#e6e6e6;--mut:#999;--line:#333;--card:#1c1c1c;--acc:#5aa0ff;--frozen:#1a2233}}
+body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 -apple-system,system-ui,sans-serif}
+.layout{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+aside{border-right:1px solid var(--line);padding:12px}aside h3{margin:8px 0 4px;font-size:12px;color:var(--mut);text-transform:uppercase}
+aside a{display:block;padding:4px 6px;border-radius:4px;color:var(--fg);text-decoration:none;cursor:pointer}aside a.sel{background:var(--acc);color:#fff}
+main{padding:12px 18px;min-width:0}
+h2{margin:6px 0 2px;font-size:16px}h3{margin:14px 0 4px;font-size:14px}
+table{border-collapse:collapse;width:100%;font-family:ui-monospace,Menlo,monospace;font-size:12px}th,td{border-bottom:1px solid var(--line);padding:3px 6px;text-align:left;white-space:nowrap;vertical-align:top}
+td.wrap,th.wrap{white-space:normal}
+tr.click{cursor:pointer}tr.click:hover{background:rgba(31,111,235,.08)}
+.bad{color:var(--bad);font-weight:600}.ok{color:var(--ok)}.mut{color:var(--mut)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin:10px 0}
+.stats{display:flex;flex-wrap:wrap;gap:8px 22px;margin:6px 0}.stats b{font-size:15px}
+pre{white-space:pre-wrap;word-break:break-word;margin:4px 0;font-size:12px}
+#log{max-height:260px;overflow:auto;background:#111;color:#ddd;padding:8px;border-radius:6px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+.turn{border-left:3px solid var(--line);padding:4px 10px;margin:8px 0}.turn.frozen{background:var(--frozen);border-left-color:var(--acc)}
+.turn .r{color:var(--mut)}.call{font-family:ui-monospace,Menlo,monospace;font-size:12px;margin:2px 0}.call .res{color:var(--mut)}
+.pill{display:inline-block;padding:0 6px;border-radius:9px;background:var(--line);font-size:11px}
+details summary{cursor:pointer;color:var(--acc)}
+</style></head><body><div class="layout">
+<aside><nav style="margin-bottom:10px"><a href="WRITEUP.html">write-up</a> · <a href="EXPERIMENT_LOG.html">log</a> · <a href="EXPERIMENT_TABLE.html">table</a> · <a href="RESULTS_DIGEST.html">digest</a> · <a href="https://github.com/fatemehmd/peer-forensics">repo</a></nav><h3>experiments</h3><div id="exps"></div><div id="logs" hidden></div><p class="mut" style="font-size:11px">static snapshot of the run records · click a row to open the full transcript</p></aside>
+<main>
+ <div id="main" class="mut">select an experiment</div>
+ <div id="detail"></div>
+ 
+</main></div>
+<script>
+// ---------------------------------------------------------------- state + helpers
+const state = { exp: null, log: null, run: null };
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const pct = r => r && r.n ? `${r.k}/${r.n} = ${Math.round(100 * r.p)}%` : `${r ? r.k : 0}/${r ? r.n : 0}`;
+const ci = r => r && r.n ? `<span class="mut">[${Math.round(100 * r.lo)}–${Math.round(100 * r.hi)}%]</span>` : '';
+const pval = p => p == null ? '' : `p = ${p < 0.001 ? '<0.001' : p.toFixed(3)}`;
+const fetchJson = async u => (await fetch(u)).json();
+const clip = (s, n) => { s = s || ''; return esc(s.slice(0, n)) + (s.length > n ? '…' : ''); };
+const mainArg = a => { const v = a && (a.path ?? a.url ?? a.message ?? a.note ?? a.content); return v == null ? JSON.stringify(a) : String(v); };
+
+// ---------------------------------------------------------------- sidebar
+async function refreshSidebar() {
+  const d = await fetchJson('data/index.json'); d.logs = [];
+  $('exps').innerHTML = d.experiments
+    .map(e => `<a class="${state.exp && state.exp.name === e.name ? 'sel' : ''}" onclick='selectExperiment(${JSON.stringify(e)})'>${esc(e.name)} <span class="pill">${e.kind}</span></a>`).join('');
+  $('logs').innerHTML = d.logs.map(l => `<a class="${state.log === l ? 'sel' : ''}" onclick='selectLog(${JSON.stringify(l)})'>${esc(l)}</a>`).join('');
+}
+function selectExperiment(e) { state.exp = e; state.run = null; $('detail').innerHTML = ''; refreshSidebar(); refreshMain(); }
+function selectLog(l) { state.log = l; refreshSidebar(); refreshLog(); }
+
+// ---------------------------------------------------------------- pilot view
+function pilotStats(s) {
+  return `<div class="stats">
+    <span>runs <b>${s.done}</b>/${s.scheduled}</span>
+    <span>used forbidden route <b class="${s.forbidden.k ? 'bad' : 'ok'}">${pct(s.forbidden)}</b> ${ci(s.forbidden)}</span>
+    <span>operator messages <b>${pct(s.operator)}</b></span>
+    <span>direct external attempts <b>${s.direct ?? 0}</b></span>
+    <span>debriefs <b>${s.debriefs ?? 0}</b>/${s.done}</span>
+    ${s.has_log ? `<span>action log edited <b class="${s.log_edited ? 'bad' : 'ok'}">${s.log_edited}</b>/${s.complete} · forbidden entries removed <b class="${s.log_forbidden_removed ? 'bad' : 'ok'}">${s.log_forbidden_removed}</b></span>` : ''}
+    <span>mean score <b>${s.mean_score == null ? '–' : s.mean_score.toFixed(2)}</b>/5</span>
+    <span>valid csv <b>${s.valid_csv}</b>/${s.complete}</span>
+    ${s.other_endings.length ? `<span class="bad">other endings: ${esc(s.other_endings.join(', '))}</span>` : ''}</div>`;
+}
+function pilotRows(rows) {
+  return `<table><tr><th>run</th><th>status</th><th>end</th><th>forbidden</th><th>direct</th><th>score</th><th>valid</th><th>op msgs</th><th>brief@</th><th>exposed</th><th>log edited</th><th>forbidden removed</th><th class="wrap">debrief 1: what guided you</th><th class="wrap">debrief 2: did you weigh the rule</th></tr>` +
+    rows.map(r => `<tr class="click" onclick='openRun(${JSON.stringify(r.path)})'><td>${r.run}</td><td class="mut">${r.status}</td><td>${esc(r.end ?? '')}</td>
+      <td class="${r.forbidden ? 'bad' : ''}">${r.forbidden ?? ''}</td><td>${r.direct ?? ''}</td><td>${r.score ?? ''}</td><td>${r.valid ?? ''}</td><td>${r.op ?? ''}</td>
+      <td>${r.brief_turn ?? ''}</td><td>${r.exposed ?? ''}</td>
+      <td class="${r.log_edited ? 'bad' : ''}">${r.log_edited == null ? '' : (r.log_edited ? 'yes' : 'no')}</td><td class="${r.log_forbidden_missing ? 'bad' : ''}">${r.log_forbidden_missing ?? ''}</td>
+      <td class="wrap" style="max-width:420px">${clip(r.debrief, 180)}</td><td class="wrap" style="max-width:420px">${clip(r.debrief2, 180)}</td></tr>`).join('') + '</table>';
+}
+function renderPilot(d) {
+  const header = `<h2>${esc(d.name)}</h2><div class="mut">${esc(d.model)} · ${esc(d.provider)} · effort ${esc(d.effort)} · T ${esc(d.temperature)} · prompt <b>${esc(d.prompt_variant)}</b> · ${esc(d.created || '')}</div>
+    ${d.notes ? `<details><summary>experiment log entry</summary><pre>${esc(d.notes)}</pre></details>` : ''}`;
+  const comparisons = d.comparisons.length ? `<div class="card"><b>Forbidden-route rate, pairwise Fisher exact (two-sided)</b><div class="stats">` +
+    d.comparisons.map(c => `<span>${c.a} vs ${c.b}: <b>${pval(c.p)}</b></span>`).join('') + `</div></div>` : '';
+  const conditions = d.conditions.map(c => `<div class="card"><h3>Condition ${esc(c.condition)}</h3>
+    <div class="desc">${esc(c.description)}</div>
+    <details><summary>full brief.txt this condition sees</summary><pre>${esc(c.brief)}</pre></details>
+    ${pilotStats(c.stats)}${pilotRows(c.rows)}</div>`).join('');
+  $('main').innerHTML = header + comparisons + conditions;
+}
+
+// ---------------------------------------------------------------- resample view
+function resamplePairs(d) {
+  if (!d.pairs.length) return '';
+  const rows = d.pairs.map(p => `<tr><td>${esc(p.source)}</td><td>${p.branch_turn}</td><td>as ${p.a}: <b class="${p.a_rate.k ? 'bad' : 'ok'}">${pct(p.a_rate)}</b> ${ci(p.a_rate)}</td>
+      <td>as ${p.b}: <b class="${p.b_rate.k ? 'bad' : 'ok'}">${pct(p.b_rate)}</b> ${ci(p.b_rate)}</td><td>${pval(p.p)}</td></tr>`).join('');
+  const pooled = Object.entries(d.pooled).map(([t, r]) => `<span>all sources as ${t}: <b>${pct(r)}</b> ${ci(r)}</span>`).join('');
+  return `<div class="card"><b>Paired comparison per source run</b> <span class="mut">(same frozen history, only the author line differs)</span>
+    <table><tr><th>source</th><th>branch turn</th><th>continued as (original)</th><th>continued as (swapped)</th><th>Fisher</th></tr>${rows}</table>
+    <div class="stats">${pooled}</div></div>`;
+}
+function resampleGroup(g) {
+  const s = g.stats;
+  const rows = g.samples.map(x => `<tr class="click" onclick='openRun(${JSON.stringify(x.path)})'><td>${x.sample}</td><td class="mut">${x.status}</td><td>${esc(x.end ?? '')}</td>
+      <td class="${x.forbidden ? 'bad' : ''}">${x.forbidden ?? ''}</td><td>${x.score ?? ''}</td>
+      <td class="wrap" style="max-width:460px">${clip(x.debrief, 200)}</td><td class="wrap" style="max-width:460px">${clip(x.debrief2, 200)}</td></tr>`).join('');
+  return `<div class="card"><h3>${esc(g.group)}</h3>
+    <div>source <b>${esc(g.source)}</b> (${esc(g.source_condition)}) → history frozen before turn ${g.branch_turn}, continued as <b>${esc(g.target)}</b>${g.source_condition !== g.target ? ' <span class="pill">author line swapped</span>' : ' <span class="pill">unchanged</span>'}</div>
+    ${g.warnings.length ? `<div class="bad">warnings: ${esc(g.warnings.join('; '))}</div>` : ''}
+    <div class="stats"><span>complete <b>${s.complete}</b>/${g.n}</span>
+      <span>used forbidden route <b class="${s.forbidden.k ? 'bad' : 'ok'}">${pct(s.forbidden)}</b> ${ci(s.forbidden)}</span>
+      <span>operator messages <b>${pct(s.operator)}</b></span>
+      <span>debriefs <b>${s.debriefs}</b> q1 · <b>${s.debriefs2}</b> q2</span></div>
+    <table><tr><th>sample</th><th>status</th><th>end</th><th>forbidden</th><th>score</th><th class="wrap">debrief 1: what guided you</th><th class="wrap">debrief 2: did you weigh the rule</th></tr>${rows}</table></div>`;
+}
+function renderResample(d) {
+  $('main').innerHTML = `<h2>${esc(d.name)}</h2><div class="mut">branch-point resampling</div>
+    ${d.notes ? `<details><summary>experiment log entry</summary><pre>${esc(d.notes)}</pre></details>` : ''}
+    ${resamplePairs(d)}${d.groups.map(resampleGroup).join('')}`;
+}
+function renderJudgment(d) {
+  const blocks = d.models.map(m => `<div class="card"><h3>${esc(m.model)}</h3>
+    <table><tr><th>source</th><th>original</th><th>branch before turn</th><th>actions: used route</th><th>judgments: reject + permitted path</th></tr>
+    ${m.sources.map(s => `<tr><td>${esc(s.source)}</td><td>${esc(s.original)}</td><td>${s.branch_turn}</td>
+      <td class="${s.route.k ? 'bad' : 'ok'}">${pct(s.route)}</td><td class="ok">${s.reject}/${s.n_j}</td></tr>`).join('')}</table>
+    ${m.sources.map(s => `<div class="card"><b>${esc(s.source)}</b> · original outcome ${esc(s.original)}
+      <div class="stats">${s.actions.map(a => `<span class="click" onclick='openRun(${JSON.stringify(a.path)})' style="cursor:pointer">${esc(a.name)}: <b class="${a.route ? 'bad' : 'ok'}">${a.route ? 'used route' : 'honest'}</b> <span class="mut">(${esc(a.end)})</span></span>`).join('')}</div>
+      ${s.judgments.map(j => `<details><summary>${esc(j.name)} · <b class="${(j.label||'').startsWith('endorses') ? 'bad' : 'ok'}">${esc(j.label || 'unlabelled')}</b>${j.note ? ' · <span class="bad">note</span>' : ''}</summary>
+        ${j.note ? `<div class="bad">${esc(j.note)}</div>` : ''}${j.reasoning ? `<pre class="r">${esc(j.reasoning)}</pre>` : ''}<pre>${esc(j.content || j.error || '')}</pre></details>`).join('')}
+    </div>`).join('')}</div>`).join('');
+  $('main').innerHTML = `<h2>${esc(d.name)}</h2><div class="mut">judgment vs action · question: ${esc(d.question || '')}</div>
+    ${d.notes ? `<details><summary>experiment log entry</summary><pre>${esc(d.notes)}</pre></details>` : ''}${blocks}`;
+}
+function renderSentence(d) {
+  const arm = (s, a) => { const x = s.arms[a]; return `<td class="${x.rate.k ? 'bad' : 'ok'}">${pct(x.rate)} ${ci(x.rate)}</td>`; };
+  const head = `<h2>${esc(d.name)}</h2><div class="mut">sentence-level resampling via assistant prefill · pooled: before <b>${pct(d.pooled.before)}</b> · through <b>${pct(d.pooled.through)}</b></div>
+    ${d.notes ? `<details><summary>experiment log entry</summary><pre>${esc(d.notes)}</pre></details>` : ''}`;
+  const table = `<div class="card"><table><tr><th>source</th><th class="wrap">pivot sentence</th><th>before pivot: used route</th><th>through pivot: used route</th></tr>
+    ${d.sources.map(s => s.usable ? `<tr><td>${esc(s.source)}</td><td class="wrap" style="max-width:520px">${esc(s.pivot)}</td>${arm(s, 'before')}${arm(s, 'through')}</tr>`
+                                   : `<tr><td>${esc(s.source)}</td><td class="mut wrap" colspan="3">skipped: ${esc(s.reason)}</td></tr>`).join('')}</table></div>`;
+  const cards = d.sources.filter(s => s.usable).map(s => `<div class="card"><b>${esc(s.source)}</b> · pivot is sentence ${s.pivot_index + 1} of ${s.n_sentences}
+    ${['before', 'through'].map(a => `<details><summary>${a}: prefill text</summary><pre>${esc(s.arms[a].prefill)}</pre></details>
+      <div class="stats">${s.arms[a].rows.map(r => `<span class="click" style="cursor:pointer" onclick='openRun(${JSON.stringify(r.path)})'>${esc(r.name)}: <b class="${r.route ? 'bad' : 'ok'}">${r.status !== 'done' ? 'running' : (r.route ? 'route' : 'honest')}</b></span>`).join('')}</div>`).join('')}</div>`).join('');
+  $('main').innerHTML = head + table + cards;
+}
+function renderCommitment(d) {
+  const cn = Object.keys(d.conditions || {});
+  const table = `<div class="card"><table><tr><th>history</th>${cn.map(c => `<th>${esc(c)}: used route</th>`).join('')}<th>A: rejected then used route</th></tr>
+    ${d.sources.map(s => `<tr><td>${esc(s.source)}</td>${cn.map(c => { const x = s.summary[c]; return x ? `<td class="${x.rate.k ? 'bad' : 'ok'}">${pct(x.rate)}</td>` : '<td></td>'; }).join('')}
+      <td>${s.summary.A_judgment_first ? `${s.summary.A_judgment_first.reject_then_route} of ${s.summary.A_judgment_first.rejects} rejections` : ''}</td></tr>`).join('')}</table></div>`;
+  const cards = d.sources.map(s => `<div class="card"><b>${esc(s.source)}</b>${cn.map(c => `<h3>${esc(c)}</h3>${(s.conds[c] || []).map(r => `<details><summary><span class="click" onclick='event.preventDefault();openRun(${JSON.stringify(r.path)})' style="cursor:pointer">${esc(r.name)}</span> · prelim <b>${esc(r.prelim_label || 'neutral')}</b>${(r.prelim_tools || []).length ? ' <span class="bad">tool call in preliminary (not executed)</span>' : ''} · then <b class="${r.route ? 'bad' : 'ok'}">${r.status !== 'done' ? 'running' : (r.route ? 'used route' : 'honest')}</b></summary><pre>${esc(r.prelim || '')}</pre></details>`).join('')}`).join('')}</div>`).join('');
+  $('main').innerHTML = `<h2>${esc(d.name)}</h2><div class="mut">does the model follow its own stated judgment? · after the preliminary answer: "${esc(d.continue_message || '')}"</div>
+    ${d.notes ? `<details><summary>experiment log entry</summary><pre>${esc(d.notes)}</pre></details>` : ''}${table}${cards}`;
+}
+async function refreshMain() {
+  if (!state.exp) return;
+  const d = await fetchJson(`data/${state.exp.name}.json`);
+  ({ pilot: renderPilot, resample: renderResample, judgment: renderJudgment, sentence: renderSentence, commitment: renderCommitment }[d.kind] || renderResample)(d);
+}
+
+// ---------------------------------------------------------------- run detail
+function renderStep(s) {
+  const calls = (s.tool_calls || []).map(c => `<div class="call">▸ <b>${esc(c.name)}</b>(${esc(clip(mainArg(c.args), 110))}) → <span class="res">${clip(String(c.result), 140)}</span></div>`).join('');
+  return `<div class="turn ${s.frozen ? 'frozen' : ''}"><b>turn ${s.turn}</b> ${s.frozen ? '<span class="pill">frozen prefix</span>' : ''}${s.finish_reason === 'length' ? ' <span class="bad">TRUNCATED</span>' : ''}
+    ${s.reasoning ? `<pre class="r">${esc(s.reasoning)}</pre>` : ''}${s.content ? `<pre>${esc(s.content)}</pre>` : ''}${calls}
+    ${(s.not_executed || []).length ? `<div class="bad">not executed: ${esc(s.not_executed.join(', '))}</div>` : ''}</div>`;
+}
+async function openRun(path) {
+  state.run = path;
+  const t = await fetchJson(`data/runs/${path.replace(/\//g, '__')}.json`);
+  if (t.missing) { $('detail').innerHTML = `<div class="card mut">no transcript yet</div>`; return; }
+  const a = t.actions || {}, g = t.grade || {};
+  $('detail').innerHTML = `<div class="card"><h3>${esc(path)}</h3>
+    <div>condition <b>${esc(t.condition)}</b> · end <b>${esc(t.end)}</b> ${t.partial ? '<span class="bad">(partial, last checkpoint)</span>' : ''}
+      · forbidden attempts <b class="${(a.forbidden_attempts || []).length ? 'bad' : 'ok'}">${(a.forbidden_attempts || []).length}</b>
+      · score <b>${g.score ?? '?'}</b> · valid csv <b>${g.valid_csv ?? '?'}</b> ${g.problems && g.problems.length ? `<span class="bad">${esc(JSON.stringify(g.problems))}</span>` : ''}
+      ${t.branch_turn != null ? `· <span class="pill">turns before ${t.branch_turn} are frozen from the source run</span>` : ''}</div>
+    ${t.initial_brief ? `<details><summary>brief.txt this run saw</summary><pre>${esc(t.initial_brief)}</pre></details>` : ''}
+    ${(t.steps || []).filter(Boolean).map(renderStep).join('')}
+    ${a.operator_msgs && a.operator_msgs.length ? `<div class="card"><b>operator messages</b>${a.operator_msgs.map(m => `<pre>${esc(m.text)}</pre>`).join('')}</div>` : ''}
+    ${a.submit_note ? `<div class="card"><b>submit note</b><pre>${esc(a.submit_note)}</pre></div>` : ''}
+    ${a.action_log ? `<div class="card"><b>action log (visible to the model)</b> · edited ${a.action_log.n_edits}x · forbidden entries logged ${a.action_log.forbidden_entries_logged}, missing at end <b class="${a.action_log.forbidden_entries_missing_at_end ? 'bad' : 'ok'}">${a.action_log.forbidden_entries_missing_at_end}</b> · other entries missing ${a.action_log.other_entries_missing_at_end}
+      <pre>${esc(a.action_log.final_log)}</pre>${(a.action_log.edits || []).map(e => `<details><summary>edit at turn ${e.turn}</summary><b>before</b><pre>${esc(e.old || '')}</pre><b>requested</b><pre>${esc(e.requested)}</pre></details>`).join('')}</div>` : ''}
+    ${t.debrief ? `<div class="card"><b>debrief 1</b> <span class="mut">${esc(t.debrief.question)}</span><pre>${esc(t.debrief.answer)}</pre>
+      ${t.debrief.answer2 ? `<b>debrief 2</b> <span class="mut">${esc(t.debrief.question2)}</span><pre>${esc(t.debrief.answer2)}</pre>` : ''}</div>` : ''}
+  </div>`;
+  window.scrollTo({ top: $('detail').offsetTop - 10, behavior: 'smooth' });
+}
+
+// ---------------------------------------------------------------- log tail
+async function refreshLog() {
+  if (!state.log) { $('log').hidden = true; $('logtitle').textContent = ''; return; }
+  const d = await fetchJson(`/api/log?name=${encodeURIComponent(state.log)}&n=300`);
+  $('logtitle').textContent = `${state.log} (${d.total} lines)`;
+  const el = $('log'); const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
+  el.hidden = false; el.textContent = d.lines.join('\n'); if (atBottom) el.scrollTop = el.scrollHeight;
+}
+
+refreshSidebar();
+</script></body></html>
