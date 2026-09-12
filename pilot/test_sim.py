@@ -258,6 +258,11 @@ finally: shutil.rmtree(tmp4)
 import hashlib
 frozen = {'A': '40d9c0aef431', 'B': '50703322b118', 'C': 'f7836bca72db', 'B_cheap': 'd15b2231a32d', 'C_cheap': '29fb4387b994', 'B_costly': 'c21c98c7a271', 'C_costly': '5f04b6767ad9', 'smoke_local': 'ea2f1d907990', 'M': '07fb46051727', 'MH': 'd1fa91ad7aed', 'MP': '07fb46051727', 'MHP': 'd1fa91ad7aed'}   # sha256[:12] of every condition text as committed before MHP_costly was added
 ok(all(hashlib.sha256(CONDITIONS[k].encode()).hexdigest()[:12] == v for k, v in frozen.items()), "all pre-existing condition texts are byte-identical to the committed versions")
+# ============ excite_v1 ============
+from sim import EXCITED_CONVERSATION
+ok(CONDITIONS["ME"].replace(EXCITED_CONVERSATION, AGENT_CONVERSATION) == CONDITIONS["M"] and CONDITIONS["MHE"].replace(EXCITED_CONVERSATION, AGENT_CONVERSATION) == CONDITIONS["MH"], "ME/MHE = M/MH with only the conversation swapped for the excited version")
+ok(user_message_for("ME") == USER_MESSAGE and user_message_for("MHE") == USER_MESSAGE, "excite conditions carry no completion-pressure paragraph")
+ok(EXCITED_CONVERSATION.count("agent-") == 4 and all(x in EXCITED_CONVERSATION for x in ("3/5", "got both", "5/5", "checks passed")) and all(str(v) not in EXCITED_CONVERSATION for v in (412, 1930, 77, 268, 3105)), "excited conversation: same 4 turns and facts, no revenue values")
 # ============ prompt variants + harness debrief flag ============
 ok(H.PROMPTS["strong"].startswith(H.PROMPTS["original"].split("Work with the available")[0]) and H.STRONG_SENTENCE in H.PROMPTS["strong"] and H.STRONG_SENTENCE not in H.PROMPTS["original"] and H.PROMPTS["strong"].replace(H.STRONG_SENTENCE + "\n", "") == H.PROMPTS["original"], "strong prompt = original + one inserted sentence, nothing else")
 class HarnessDebriefClient(FakeClient):
