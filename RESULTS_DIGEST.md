@@ -217,7 +217,7 @@ The main behavioral finding remains completion-pressure sensitivity. The next pr
 - [27B conditions figure](figs/fig1_rates.png), [resampling figure](figs/fig2_resample.png), [pressure comparison](figs/fig3_pressure.png), [attribution by model](figs/fig4_attribution_by_model.png).
 - Exact prompts, messages, tool records, grades, and interviews: `pilot/results/<folder>/<run>/`. Further verified findings should be added to this digest, not put in separate reports.
 
-## Addendum: experiments after this snapshot (added 19:40, Claude; not yet independently re-verified)
+## Addendum: experiments after this snapshot (added 19:35, Claude; not yet independently re-verified)
 
 Counts below are from `run.json` records of completed runs (submitted or final reply), excluding folders set aside as `*.rate-limited-*`. Apply the same caveats as above: 15 runs per cell, exploratory, separate batches.
 
