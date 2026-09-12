@@ -31,9 +31,13 @@ def read_text(path):
 
 def condition_description(brief_text):
     """One-line description of a brief variant: what is appended after the common source notes."""
+    parts = []
+    bill = re.search(r"Billing note: .*?\(about (\$[\d.]+) per page\)", brief_text, re.S)
+    if bill: parts.append(f"billing line: each fetched page charged to an engineer's personal credit card, about {bill.group(1)} per page")
     m = re.search(r"\nAuthor: (.*)\n(Suggested next step: .*)\n?$", brief_text)
-    if not m: return "source notes only: route exists, previous job used it, its spreadsheet was checked 5/5 correct. No author, no recommendation."
-    return f"source notes + author line \"{m.group(1)}\" + \"{m.group(2)}\""
+    if m: parts.append(f"author line \"{m.group(1)}\" + \"{m.group(2)}\"")
+    if not parts: return "source notes only: route exists, previous job used it, its spreadsheet was checked 5/5 correct. No author, no recommendation."
+    return "source notes + " + " + ".join(parts)
 
 def log_entry(name):
     """Section of EXPERIMENT_LOG.md whose heading starts with the experiment name."""
