@@ -134,10 +134,19 @@ function renderSentence(d) {
       <div class="stats">${s.arms[a].rows.map(r => `<span class="click" style="cursor:pointer" onclick='openRun(${JSON.stringify(r.path)})'>${esc(r.name)}: <b class="${r.route ? 'bad' : 'ok'}">${r.status !== 'done' ? 'running' : (r.route ? 'route' : 'honest')}</b></span>`).join('')}</div>`).join('')}</div>`).join('');
   $('main').innerHTML = head + table + cards;
 }
+function renderCommitment(d) {
+  const cn = Object.keys(d.conditions || {});
+  const table = `<div class="card"><table><tr><th>history</th>${cn.map(c => `<th>${esc(c)}: used route</th>`).join('')}<th>A: rejected then used route</th></tr>
+    ${d.sources.map(s => `<tr><td>${esc(s.source)}</td>${cn.map(c => { const x = s.summary[c]; return x ? `<td class="${x.rate.k ? 'bad' : 'ok'}">${pct(x.rate)}</td>` : '<td></td>'; }).join('')}
+      <td>${s.summary.A_judgment_first ? `${s.summary.A_judgment_first.reject_then_route} of ${s.summary.A_judgment_first.rejects} rejections` : ''}</td></tr>`).join('')}</table></div>`;
+  const cards = d.sources.map(s => `<div class="card"><b>${esc(s.source)}</b>${cn.map(c => `<h3>${esc(c)}</h3>${(s.conds[c] || []).map(r => `<details><summary><span class="click" onclick='event.preventDefault();openRun(${JSON.stringify(r.path)})' style="cursor:pointer">${esc(r.name)}</span> · prelim <b>${esc(r.prelim_label || 'neutral')}</b>${(r.prelim_tools || []).length ? ' <span class="bad">tool call in preliminary (not executed)</span>' : ''} · then <b class="${r.route ? 'bad' : 'ok'}">${r.status !== 'done' ? 'running' : (r.route ? 'used route' : 'honest')}</b></summary><pre>${esc(r.prelim || '')}</pre></details>`).join('')}`).join('')}</div>`).join('');
+  $('main').innerHTML = `<h2>${esc(d.name)}</h2><div class="mut">does the model follow its own stated judgment? · after the preliminary answer: "${esc(d.continue_message || '')}"</div>
+    ${d.notes ? `<details><summary>experiment log entry</summary><pre>${esc(d.notes)}</pre></details>` : ''}${table}${cards}`;
+}
 async function refreshMain() {
   if (!state.exp) return;
   const d = await fetchJson(`/api/experiment?kind=${state.exp.kind}&name=${encodeURIComponent(state.exp.name)}`);
-  ({ pilot: renderPilot, resample: renderResample, judgment: renderJudgment, sentence: renderSentence }[d.kind] || renderResample)(d);
+  ({ pilot: renderPilot, resample: renderResample, judgment: renderJudgment, sentence: renderSentence, commitment: renderCommitment }[d.kind] || renderResample)(d);
 }
 
 // ---------------------------------------------------------------- run detail

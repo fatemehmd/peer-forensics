@@ -51,6 +51,7 @@ def log_entry(name):
 def experiment_kind(d):
     if os.path.exists(os.path.join(d, "_manifest.json")): return "pilot"
     if glob.glob(os.path.join(d, "*", "before-*")): return "sentence"
+    if glob.glob(os.path.join(d, "*", "A_judgment_first-*")): return "commitment"
     if glob.glob(os.path.join(d, "*", "meta.json")): return "resample"
     if glob.glob(os.path.join(d, "*", "*", "judgment-*")): return "judgment"
     return "other"
@@ -197,6 +198,25 @@ def sentence_view(name):
         k = sum(s["arms"][arm]["rate"]["k"] for s in sources if s.get("usable")); n = sum(s["arms"][arm]["rate"]["n"] for s in sources if s.get("usable")); pooled[arm] = rate(k, n)
     return dict(kind="sentence", name=name, sources=sources, pooled=pooled, notes=log_entry(name))
 
+# ---------------------------------------------------------------- commitment view
+def commitment_view(name):
+    d = safe_path(RESULTS, name); meta = load_json(os.path.join(d, "meta.json"), {}); sources = []
+    for sdir in sorted(x for x in glob.glob(os.path.join(d, "MP__*")) if os.path.isdir(x)):
+        src = os.path.basename(sdir); conds = {}
+        for cd in sorted(glob.glob(os.path.join(sdir, "*-*"))):
+            r = load_json(os.path.join(cd, "record.json")); cname = os.path.basename(cd).rsplit("-", 1)[0]
+            p = (r or {}).get("preliminary") or {}
+            conds.setdefault(cname, []).append(dict(name=os.path.basename(cd), status="done" if r else "running", end=r and r.get("end_reason"), route=bool(r and r.get("route")),
+                                                    prelim_label=p.get("auto_label"), prelim=p.get("content"), prelim_tools=p.get("tool_calls_returned"), path=f"{name}/{src}/{os.path.basename(cd)}"))
+        summary = {}
+        for cname, rows in conds.items():
+            complete = [x for x in rows if x["end"] in COMPLETE_ENDINGS]
+            summary[cname] = dict(rate=rate(sum(x["route"] for x in complete), len(complete)),
+                                  reject_then_route=sum(1 for x in complete if x["prelim_label"] == "rejects" and x["route"]),
+                                  rejects=sum(1 for x in complete if x["prelim_label"] == "rejects"))
+        sources.append(dict(source=src, conds=conds, summary=summary))
+    return dict(kind="commitment", name=name, sources=sources, conditions=meta.get("conditions"), continue_message=meta.get("continue_message"), notes=log_entry(name))
+
 # ---------------------------------------------------------------- transcript + logs
 def prefix_steps(messages):
     """Turn a frozen message prefix (from a resample group's meta.json) into step records so the
@@ -221,8 +241,9 @@ def load_json_str(s):
 
 def transcript_view(rel):
     rd = safe_path(RESULTS, rel)
-    t = load_json(os.path.join(rd, "transcript.json"))
+    t = load_json(os.path.join(rd, "transcript.json")) or load_json(os.path.join(rd, "record.json"))
     meta = load_json(os.path.join(os.path.dirname(rd), "meta.json"))          # present only for resample samples
+    if meta and "prefix_messages" not in meta: meta = None
     frozen = prefix_steps(meta["prefix_messages"]) if meta else []
     if t is None:
         cps = sorted(glob.glob(os.path.join(rd, "step-*.json")))
@@ -246,7 +267,7 @@ INDEX_HTML = read_text(os.path.join(os.path.dirname(__file__), "index.html"))
 
 ROUTES = {
     "/api/experiments": lambda q: dict(experiments=list_experiments(), logs=sorted(os.path.basename(f) for f in glob.glob(os.path.join(LOGS, "*.txt")))),
-    "/api/experiment": lambda q: {"pilot": pilot_view, "resample": resample_view, "judgment": judgment_view, "sentence": sentence_view}.get(q.get("kind"), resample_view)(q["name"]),
+    "/api/experiment": lambda q: {"pilot": pilot_view, "resample": resample_view, "judgment": judgment_view, "sentence": sentence_view, "commitment": commitment_view}.get(q.get("kind"), resample_view)(q["name"]),
     "/api/transcript": lambda q: transcript_view(q["path"]),
     "/api/log": lambda q: log_tail(q["name"], int(q.get("n", 300))),
 }
