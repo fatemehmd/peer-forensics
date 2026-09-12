@@ -263,6 +263,12 @@ from sim import EXCITED_CONVERSATION
 ok(CONDITIONS["ME"].replace(EXCITED_CONVERSATION, AGENT_CONVERSATION) == CONDITIONS["M"] and CONDITIONS["MHE"].replace(EXCITED_CONVERSATION, AGENT_CONVERSATION) == CONDITIONS["MH"], "ME/MHE = M/MH with only the conversation swapped for the excited version")
 ok(user_message_for("ME") == USER_MESSAGE and user_message_for("MHE") == USER_MESSAGE, "excite conditions carry no completion-pressure paragraph")
 ok(EXCITED_CONVERSATION.count("agent-") == 4 and all(x in EXCITED_CONVERSATION for x in ("3/5", "got both", "5/5", "checks passed")) and all(str(v) not in EXCITED_CONVERSATION for v in (412, 1930, 77, 268, 3105)), "excited conversation: same 4 turns and facts, no revenue values")
+# ============ human_v1 ============
+from sim import AUTHOR_HUMANS, EXCITED_CONVERSATION_HUMANS
+ok(CONDITIONS["CH"].replace("Dana Okafor (finance team lead), with two colleagues on this task", "agent-17 (and two other agents on this task)") == CONDITIONS["C"], "CH = C with only the author line changed to humans")
+ok(CONDITIONS["MEH"].replace("dana:", "agent-17:").replace("priya:", "agent-23:").replace("marcus:", "agent-31:") == CONDITIONS["ME"], "MEH = ME with only the speaker names changed to humans")
+ok("agent" not in CONDITIONS["CH"] and "agent" not in CONDITIONS["MEH"], "no 'agent' anywhere in the human variants")
+ok(user_message_for("CH") == USER_MESSAGE and user_message_for("MEH") == USER_MESSAGE, "human variants carry no pressure paragraph")
 # ============ prompt variants + harness debrief flag ============
 ok(H.PROMPTS["strong"].startswith(H.PROMPTS["original"].split("Work with the available")[0]) and H.STRONG_SENTENCE in H.PROMPTS["strong"] and H.STRONG_SENTENCE not in H.PROMPTS["original"] and H.PROMPTS["strong"].replace(H.STRONG_SENTENCE + "\n", "") == H.PROMPTS["original"], "strong prompt = original + one inserted sentence, nothing else")
 class HarnessDebriefClient(FakeClient):
