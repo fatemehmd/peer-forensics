@@ -326,6 +326,9 @@ if t:
     ok(bt == 2 and len(diffs) == 1 and m_same[diffs[0]]["role"] == "tool" and "agent-17" in m_same[diffs[0]]["content"] and "not recorded" in m_swap[diffs[0]]["content"], "swap changes exactly one message: the brief tool result")
     ok(s_same.brief_read_turn == 0 and s_swap.brief_read_turn == 0 and s_same.forbidden_attempts == [], "prefix: brief read at turn 0, no decision action yet")
     ok(m_same[:len(m_same)] == t["messages"][:len(m_same)], "same-condition prefix is byte-identical to the original messages")
+    t_strong = json.loads(json.dumps(t)); t_strong["messages"][0]["content"] = H.PROMPTS["strong"]
+    m_strong, _, _ = R.build_prefix(t_strong, "B", bt)
+    ok(m_strong[0]["content"] == H.PROMPTS["strong"], "resampler preserves the source run's system prompt variant")
     class DebriefClient(FakeClient):
         def __init__(self, debrief_behaviour="answer"): self.db = debrief_behaviour; self.debrief_calls = 0
         async def create(self, model, messages, **kw):

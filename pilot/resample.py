@@ -38,7 +38,8 @@ def find_branch_turn(transcript):
 def build_prefix(transcript, target_condition, branch_turn):
     """Replay messages before branch_turn on a fresh Sim(target_condition). Returns (msgs, sim, warnings)."""
     sim = Sim(target_condition)
-    msgs = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user_message_for(target_condition)}]
+    src_system = transcript["messages"][0]["content"]          # preserve the source run's system prompt variant
+    msgs = [{"role": "system", "content": src_system}, {"role": "user", "content": user_message_for(target_condition)}]
     warnings = []
     turn = -1; pending = {}
     for m in transcript["messages"][2:]:
