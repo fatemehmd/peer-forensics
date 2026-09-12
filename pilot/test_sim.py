@@ -238,6 +238,26 @@ try:
     ok(cfgP["user_suffixes"] == {"M": "", "MP": PRESSURE_SUFFIX}, "manifest config records per-condition user suffixes")
 finally: shutil.rmtree(tmp3)
 
+# ============ MHP_costly follow-up ============
+ok(CONDITIONS["MHP_costly"].replace("$250", "$0.50") == CONDITIONS["MHP"] and CONDITIONS["MHP_costly"] != CONDITIONS["MHP"], "MHP_costly = MHP with only the amount changed ($250)")
+ok(user_message_for("MHP_costly") == USER_MESSAGE + PRESSURE_SUFFIX, "MHP_costly keeps the completion-pressure user paragraph")
+ok("agent-23: cache remote-fetch worked" in CONDITIONS["MHP_costly"] and "not authorized" in CONDITIONS["MHP_costly"] and "Author:" not in CONDITIONS["MHP_costly"], "MHP_costly has the archived conversation and the unauthorized billing wording, no author line")
+ok(CONDITIONS["MHP_costly"] != CONDITIONS["C_costly"] and CONDITIONS["MHP_costly"] != CONDITIONS["B_costly"], "MHP_costly is not the pilot_v3 B/C_costly brief format")
+tmp4 = tempfile.mkdtemp()
+try:
+    cfgX = H.build_config("fake/model", "fakeprov", "medium", ["MHP_costly"], prompt="firm")
+    cx = CaptureClient({"A": [READ, SUB], "B": [READ, SUB], "C": [READ, SUB]})
+    with contextlib.redirect_stdout(io.StringIO()):
+        asyncio.run(H.run_batch(cx, cfgX, [("MHP_costly", 0)], os.path.join(tmp4, "x"), 1))
+    sysprompts = set(cx.seen_user.keys()); users = set().union(*cx.seen_user.values())
+    ok(users == {USER_MESSAGE + PRESSURE_SUFFIX} and all(k == H.PROMPTS["firm"][:20] for k in sysprompts), "MHP_costly request carries the firm system prompt and the pressure paragraph")
+    st = json.load(open(os.path.join(tmp4, "x", "MHP_costly__00", "setup.json"))); man = json.load(open(os.path.join(tmp4, "x", "_manifest.json")))
+    ok(st["messages"][0]["content"] == H.PROMPTS["firm"] and st["messages"][1]["content"].endswith(PRESSURE_SUFFIX) and st["initial_fs"]["/workspace/brief.txt"] == CONDITIONS["MHP_costly"] and man["config"]["conditions"]["MHP_costly"] == CONDITIONS["MHP_costly"] and man["config"]["user_suffixes"]["MHP_costly"] == PRESSURE_SUFFIX, "setup.json and manifest record the exact prompts and condition text")
+finally: shutil.rmtree(tmp4)
+# existing condition texts unchanged (frozen hashes from before this change)
+import hashlib
+frozen = {'A': '40d9c0aef431', 'B': '50703322b118', 'C': 'f7836bca72db', 'B_cheap': 'd15b2231a32d', 'C_cheap': '29fb4387b994', 'B_costly': 'c21c98c7a271', 'C_costly': '5f04b6767ad9', 'smoke_local': 'ea2f1d907990', 'M': '07fb46051727', 'MH': 'd1fa91ad7aed', 'MP': '07fb46051727', 'MHP': 'd1fa91ad7aed'}   # sha256[:12] of every condition text as committed before MHP_costly was added
+ok(all(hashlib.sha256(CONDITIONS[k].encode()).hexdigest()[:12] == v for k, v in frozen.items()), "all pre-existing condition texts are byte-identical to the committed versions")
 # ============ prompt variants + harness debrief flag ============
 ok(H.PROMPTS["strong"].startswith(H.PROMPTS["original"].split("Work with the available")[0]) and H.STRONG_SENTENCE in H.PROMPTS["strong"] and H.STRONG_SENTENCE not in H.PROMPTS["original"] and H.PROMPTS["strong"].replace(H.STRONG_SENTENCE + "\n", "") == H.PROMPTS["original"], "strong prompt = original + one inserted sentence, nothing else")
 class HarnessDebriefClient(FakeClient):
