@@ -69,12 +69,16 @@ def build_config(model, provider, effort, conditions, prompt="original"):
 
 class ConfigMismatch(Exception): pass
 
-def load_or_create_manifest(out, config, scheduled):
-    """Refuse to mix settings in one folder. Returns manifest."""
+def load_or_create_manifest(out, config, scheduled, ignore_keys=()):
+    """Refuse to mix settings in one folder. Returns manifest. `ignore_keys` (e.g. code_hashes for a debrief-only
+    backfill) are recorded in the manifest as a note rather than enforced."""
     mpath = os.path.join(out, "_manifest.json")
     if os.path.exists(mpath):
         m = json.load(open(mpath))
-        diffs = [k for k in config if m.get("config", {}).get(k) != config[k]]
+        diffs = [k for k in config if k not in ignore_keys and m.get("config", {}).get(k) != config[k]]
+        for k in ignore_keys:
+            if m.get("config", {}).get(k) != config[k]:
+                m.setdefault("notes", []).append(dict(when=time.strftime("%Y-%m-%dT%H:%M:%S"), event=f"debrief-only backfill with different {k}", stored=m.get("config", {}).get(k), current=config[k]))
         if diffs: raise ConfigMismatch(f"{out} was created with different settings; differing keys: {diffs}. Use a new --out folder.")
         m["runs"] = sorted(set(map(tuple, m["runs"])) | set(scheduled))
     else:
@@ -184,12 +188,15 @@ async def run_one(client, config, condition, seed, out, sem, debrief_on=False):
     if end == "cancelled": raise asyncio.CancelledError
     return end
 
-async def run_batch(client, config, scheduled, out, concurrency=8, debrief_on=False):
-    """Shared by the CLI and the offline tests. With debrief_on, finished runs lacking a debrief are revisited for it only."""
-    manifest = load_or_create_manifest(out, config, scheduled)     # refuses mismatched settings before any API call
+async def run_batch(client, config, scheduled, out, concurrency=8, debrief_on=False, debrief_only=False):
+    """Shared by the CLI and the offline tests. With debrief_on, finished runs lacking a debrief are revisited for it only.
+    With debrief_only, no new run is ever generated (missing runs are reported and skipped) and code-hash drift is tolerated."""
+    manifest = load_or_create_manifest(out, config, scheduled, ignore_keys=("code_hashes",) if debrief_only else ())
     def needs_work(c, s):
         rd = os.path.join(out, f"{c}__{s:02d}")
-        if not os.path.exists(os.path.join(rd, "run.json")): return True
+        if not os.path.exists(os.path.join(rd, "run.json")):
+            if debrief_only: print(f"[{c} s{s:02d}] no run on disk; debrief-only mode will not generate it", flush=True); return False
+            return True
         if not debrief_on: return False
         import debrief
         return not debrief.is_complete(os.path.join(rd, "debrief.json"))
@@ -211,6 +218,7 @@ async def main():
     ap.add_argument("--prompt", choices=list(PROMPTS), default="original", help="system prompt variant")
     ap.add_argument("--conditions", nargs="+", default=None, help="override condition list (e.g. B C)")
     ap.add_argument("--debrief", action="store_true", help="ask the two debrief questions after each completed run")
+    ap.add_argument("--debrief-only", action="store_true", help="backfill debriefs into an existing folder; never generates runs; tolerates code-hash drift (recorded in the manifest)")
     a = ap.parse_args()
     from openai import AsyncOpenAI
     client = AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=os.environ["OPENROUTER_API_KEY"])
@@ -222,7 +230,7 @@ async def main():
     scheduled = [(c, s) for c in conds for s in range(a.n)]
     config = build_config(a.model, a.provider, a.effort, conds, a.prompt)
     try:
-        await run_batch(client, config, scheduled, a.out, a.concurrency, a.debrief)
+        await run_batch(client, config, scheduled, a.out, a.concurrency, a.debrief or a.debrief_only, a.debrief_only)
     except ConfigMismatch as e:
         print(f"REFUSED: {e}"); raise SystemExit(2)
 
