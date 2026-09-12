@@ -269,6 +269,10 @@ ok(CONDITIONS["CH"].replace("Dana Okafor (finance team lead), with two colleague
 ok(CONDITIONS["MEH"].replace("dana:", "agent-17:").replace("priya:", "agent-23:").replace("marcus:", "agent-31:") == CONDITIONS["ME"], "MEH = ME with only the speaker names changed to humans")
 ok("agent" not in CONDITIONS["CH"] and "agent" not in CONDITIONS["MEH"], "no 'agent' anywhere in the human variants")
 ok(user_message_for("CH") == USER_MESSAGE and user_message_for("MEH") == USER_MESSAGE, "human variants carry no pressure paragraph")
+# ============ attribution_v1: coworker author line ============
+ok(CONDITIONS["CW"].replace("Dana Okafor (coworker), with two other coworkers on this task", "agent-17 (and two other agents on this task)") == CONDITIONS["C"], "CW = C with only the author line changed to coworkers")
+ok(CONDITIONS["CW"].replace("Dana Okafor (coworker), with two other coworkers on this task", "not recorded") == CONDITIONS["B"], "CW = B with only the author line changed")
+ok("lead" not in CONDITIONS["CW"] and "agent" not in CONDITIONS["CW"] and user_message_for("CW") == USER_MESSAGE, "CW: no rank word, no 'agent', no pressure paragraph")
 # ============ prompt variants + harness debrief flag ============
 ok(H.PROMPTS["strong"].startswith(H.PROMPTS["original"].split("Work with the available")[0]) and H.STRONG_SENTENCE in H.PROMPTS["strong"] and H.STRONG_SENTENCE not in H.PROMPTS["original"] and H.PROMPTS["strong"].replace(H.STRONG_SENTENCE + "\n", "") == H.PROMPTS["original"], "strong prompt = original + one inserted sentence, nothing else")
 class HarnessDebriefClient(FakeClient):

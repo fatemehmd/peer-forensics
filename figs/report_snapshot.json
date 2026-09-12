@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-09-12T04:16:18.653673+00:00",
+  "generated_utc": "2026-09-12T04:18:18.229491+00:00",
   "files": {
     "pilot/results/excite_v1/_manifest.json": "082249db8856faa2fad7c37ee2352b5c2063b6d5d83c9018d97a3a2c92e68acf",
     "pilot/results/excite_v1/ME__00/run.json": "4154c7e792cdeda9c903c047842e843c53cd7c1000214d5364594d4db1b00733",
@@ -1473,6 +1473,8 @@
     "pilot/results/replication_v1_q122b/MHP__46/transcript.json": "80b187d454bb68defa79f7175c94b2553d4edcf90fbc5ba7bbaa36a66b43d450",
     "pilot/results/replication_v1_q122b/MHP__47/run.json": "266dc06cf7cf9f205b9cef6a06a632d8e5d48e1e33f7e36be1fe10ef78aabd40",
     "pilot/results/replication_v1_q122b/MHP__47/transcript.json": "041cb7945b0b1cab76b9deef1691d860756e65eae4ff9898b3a2e6a7b96e30c5",
+    "pilot/results/replication_v1_q122b/MHP__48/run.json": "2d18225a030f31de7c3dce6658e209189a171351db189a7666dfd6530693699e",
+    "pilot/results/replication_v1_q122b/MHP__48/transcript.json": "569bfd9a5d68c6c0a9d2fc385ebb0ecc3ffadd7f49557453ed9deaca3f984be1",
     "pilot/results/replication_v1_q122b/MHP__49/run.json": "73e79011cbe78b77616f56e382059ba963dc04a1676393e25228170bfb15926a",
     "pilot/results/replication_v1_q122b/MHP__49/transcript.json": "6db82fcc4ef17b0e93ac54519858375260bb8a9df2702768e353013c372c0868",
     "pilot/results/replication_v1_q122b/MHP_costly__00/run.json": "6138c52d4e0483c3e5fb8129f58d913389855bf7a464bb2bfc2a8b884588192b",
@@ -2288,8 +2290,8 @@
   },
   "fresh": {
     "excite_v1": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.6-27b",
+      "provider": "alibaba",
       "conditions": {
         "ME": {
           "k": 2,
@@ -2320,8 +2322,8 @@
       "pending_folders": 0
     },
     "excite_v1_q122b": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.5-122b-a10b",
+      "provider": "alibaba",
       "conditions": {
         "ME": {
           "k": 8,
@@ -2352,8 +2354,8 @@
       "pending_folders": 0
     },
     "human_v1_novita_firm": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.5-122b-a10b",
+      "provider": "novita",
       "conditions": {
         "MEH": {
           "k": 9,
@@ -2384,8 +2386,8 @@
       "pending_folders": 0
     },
     "human_v1_novita_original": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.5-122b-a10b",
+      "provider": "novita",
       "conditions": {
         "CH": {
           "k": 12,
@@ -2416,8 +2418,8 @@
       "pending_folders": 0
     },
     "human_v1_q122b_firm": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.5-122b-a10b",
+      "provider": "alibaba",
       "conditions": {},
       "archived": {
         "MEH": {
@@ -2437,8 +2439,8 @@
       "pending_folders": 10
     },
     "human_v1_q122b_original": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.5-122b-a10b",
+      "provider": "alibaba",
       "conditions": {
         "CH": {
           "k": 0,
@@ -2471,8 +2473,8 @@
       "pending_folders": 16
     },
     "pilot_v2": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.6-27b",
+      "provider": "alibaba",
       "conditions": {
         "A": {
           "k": 1,
@@ -2515,8 +2517,8 @@
       "pending_folders": 0
     },
     "pilot_v2_q122b": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.5-122b-a10b",
+      "provider": "alibaba",
       "conditions": {
         "A": {
           "k": 1,
@@ -2559,8 +2561,8 @@
       "pending_folders": 0
     },
     "pilot_v3_harm_cheap": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.6-27b",
+      "provider": "alibaba",
       "conditions": {
         "B_cheap": {
           "k": 0,
@@ -2591,8 +2593,8 @@
       "pending_folders": 0
     },
     "pilot_v3_harm_costly": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.6-27b",
+      "provider": "alibaba",
       "conditions": {
         "B_costly": {
           "k": 0,
@@ -2623,8 +2625,8 @@
       "pending_folders": 0
     },
     "pilot_v3_original": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.6-27b",
+      "provider": "alibaba",
       "conditions": {
         "B": {
           "k": 7,
@@ -2655,8 +2657,8 @@
       "pending_folders": 0
     },
     "pilot_v3_strong": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.6-27b",
+      "provider": "alibaba",
       "conditions": {
         "B": {
           "k": 0,
@@ -2687,8 +2689,8 @@
       "pending_folders": 0
     },
     "pressure_costly_v1": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.6-27b",
+      "provider": "alibaba",
       "conditions": {
         "MHP_costly": {
           "k": 3,
@@ -2707,8 +2709,8 @@
       "pending_folders": 0
     },
     "pressure_costly_v1_q122b": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.5-122b-a10b",
+      "provider": "alibaba",
       "conditions": {
         "MHP_costly": {
           "k": 3,
@@ -2741,8 +2743,8 @@
       "pending_folders": 0
     },
     "pressure_v1": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.6-27b",
+      "provider": "alibaba",
       "conditions": {
         "MHP": {
           "k": 7,
@@ -2797,8 +2799,8 @@
       "pending_folders": 0
     },
     "pressure_v1_q122b": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.5-122b-a10b",
+      "provider": "alibaba",
       "conditions": {
         "MHP": {
           "k": 4,
@@ -2902,8 +2904,8 @@
       "pending_folders": 0
     },
     "replication_v1": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.6-27b",
+      "provider": "alibaba",
       "conditions": {
         "MHP": {
           "k": 18,
@@ -2946,28 +2948,28 @@
       "pending_folders": 0
     },
     "replication_v1_q122b": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.5-122b-a10b",
+      "provider": "alibaba",
       "conditions": {
         "MHP": {
           "k": 10,
-          "n": 49,
-          "direct": 0,
-          "any_http": 10,
+          "n": 50,
+          "direct": 1,
+          "any_http": 11,
           "operator": 5,
           "failed": 0,
           "failed_cache": 0,
           "ends": {
-            "submitted": 49
+            "submitted": 50
           }
         },
         "MHP_costly": {
           "k": 13,
-          "n": 49,
+          "n": 50,
           "direct": 2,
           "any_http": 14,
           "operator": 2,
-          "failed": 1,
+          "failed": 0,
           "failed_cache": 0,
           "ends": {
             "submitted": 49,
@@ -2988,11 +2990,11 @@
         }
       },
       "archived": {},
-      "pending_folders": 1
+      "pending_folders": 0
     },
     "smoke_q122b": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.5-122b-a10b",
+      "provider": "alibaba",
       "conditions": {
         "smoke_local": {
           "k": 0,
@@ -3011,8 +3013,8 @@
       "pending_folders": 0
     },
     "smoke_q122b_novita": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.5-122b-a10b",
+      "provider": "novita",
       "conditions": {
         "smoke_local": {
           "k": 0,
@@ -3031,8 +3033,8 @@
       "pending_folders": 0
     },
     "smoke_v2": {
-      "model": null,
-      "provider": null,
+      "model": "qwen/qwen3.6-27b",
+      "provider": "alibaba",
       "conditions": {
         "smoke_local": {
           "k": 0,
@@ -3922,5 +3924,6 @@
       "failed_cache": 10
     }
   },
-  "replication_complete": false
+  "replication_prompt_checks": 300,
+  "replication_complete": true
 }
