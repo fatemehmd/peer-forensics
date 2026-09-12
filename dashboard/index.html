@@ -71,7 +71,7 @@ function renderPilot(d) {
   const comparisons = d.comparisons.length ? `<div class="card"><b>Forbidden-route rate, pairwise Fisher exact (two-sided)</b><div class="stats">` +
     d.comparisons.map(c => `<span>${c.a} vs ${c.b}: <b>${pval(c.p)}</b></span>`).join('') + `</div></div>` : '';
   const conditions = d.conditions.map(c => `<div class="card"><h3>Condition ${esc(c.condition)}</h3>
-    <div class="layout">${esc(c.description)}</div>
+    <div class="desc">${esc(c.description)}</div>
     <details><summary>full brief.txt this condition sees</summary><pre>${esc(c.brief)}</pre></details>
     ${pilotStats(c.stats)}${pilotRows(c.rows)}</div>`).join('');
   $('main').innerHTML = header + comparisons + conditions;
