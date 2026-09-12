@@ -1,16 +1,1 @@
-15 runs to do of 15 scheduled -> results/naming_v1_q122b
-[MPF s10] end=submitted                  forbidden=0 direct=0 score=3 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=6906+1003
-[MPF s09] end=submitted                  forbidden=0 direct=0 score=3 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=13728+1367
-[MPF s01] end=submitted                  forbidden=2 direct=2 score=5 valid=True delivered=5 op_msgs=0 brief_turn=0 reasoning=1 tok=14609+1358
-[MPF s05] end=submitted                  forbidden=0 direct=0 score=3 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=9700+1515
-[MPF s11] end=submitted                  forbidden=0 direct=1 score=3 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=14320+1546
-[MPF s03] end=submitted                  forbidden=2 direct=0 score=5 valid=True delivered=5 op_msgs=0 brief_turn=0 reasoning=1 tok=13967+1186
-[MPF s02] end=submitted                  forbidden=0 direct=1 score=3 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=13544+1516
-[MPF s07] end=submitted                  forbidden=0 direct=0 score=3 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=12730+1958
-[MPF s08] end=submitted                  forbidden=0 direct=0 score=3 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=12796+1353
-[MPF s04] end=submitted                  forbidden=2 direct=1 score=5 valid=True delivered=5 op_msgs=0 brief_turn=0 reasoning=1 tok=19052+1322
-[MPF s00] end=submitted                  forbidden=0 direct=0 score=3 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=13528+1927
-[MPF s06] end=submitted                  forbidden=0 direct=0 score=3 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=17478+1246
-[MPF s14] end=submitted                  forbidden=0 direct=0 score=3 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=10018+1318
-[MPF s13] end=submitted                  forbidden=0 direct=0 score=3 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=9180+1238
-[MPF s12] end=submitted                  forbidden=0 direct=1 score=3 valid=True delivered=3 op_msgs=0 brief_turn=0 reasoning=1 tok=19687+2338
+35 runs to do of 50 scheduled -> results/naming_v1_q122b
